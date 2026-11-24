@@ -1,0 +1,129 @@
+"""岔路接隧道的直線段（control.tunnel）：限速、目標往左偏一點，方向完全照鏡頭。
+
+拱門入口比前面那段直線偏左，車道在拱門前往左拐一下（183147 順利通過時車頭往左轉了約 28° 再轉回來）。
+接近拱門時左線出了畫面、只剩右線，鏡頭算出「偏右、前方往左」是對的：
+  - 190038（race）以 65–87% 衝進來，前輪打到 −40° 也來不及，撞上拱門右腳
+  - 191047、191347 第一版這裡「只剩一條線時不准往左」（以為是誤判），車子照直線方向直直撞上右腳
+所以這裡不干涉方向，只做兩件事：
+  - 速度最多 v（183147 66% 修得過、但甩到 ±30°）
+  - 目標點往左偏 y_bias m（Controller.y_extra），進拱門前就先靠左，離右腳遠一點、左拐的量也小一點
+
+哪一段：車頭角回到出發時的方向（每圈 −360°，順時針一圈）。出發 after_s 秒後，
+車頭角離「出發方向 − 360°×圈數 + yaw_offset」window 度以內、維持 min_s 秒。
+注意：出發位置和方向要和 2026-11-05 一樣（起跑線，隧道在一圈的最後）；換起點要改 yaw_offset。
+"""
+
+
+import cv2
+
+
+class TunnelGuard:
+    def __init__(self, cfg):
+        c = (cfg["control"].get("tunnel") or {})
+        self.on = bool(c.get("enable", False))
+        self.after_s = c.get("after_s", 15.0)      # 出發後幾秒才開始找（起跑那段直線方向一樣，不算）
+        self.window = c.get("window", 25.0)        # 車頭角離隧道方向幾度以內
+        self.min_s = c.get("min_s", 0.6)           # 維持多久才算進入（彎道掃過去不算）
+        self.yaw_offset = c.get("yaw_offset", 0.0)  # 隧道段方向 = 出發方向 + 這個（度，左正）
+        self.v = c.get("v", 50)                    # 隧道裡（畫面暗）最快幾 %
+        self.v_zone = c.get("v_zone", self.v)      # 用車頭方向認的岔路 / 隧道段（暗之前）最快幾 %
+        self.y_bias = c.get("y_bias", 0.06)         # 目標往左偏幾 m
+        # 前視多加幾 m（負 = 縮短）。原本 +0.2 想提早看到拱門前往左拐，結果同樣偏 18 cm 前輪只算出 −9°（短的話 −22°），
+        # 194348、194020 都貼上隧道右牆（偏右 20–29 cm），194348 卡住。改成縮短，反應快一點
+        self.ld = c.get("ld", -0.1)
+        self.max_rate = c.get("max_rate", 20.0)    # 車頭轉速（°/s）超過這個不算進入（在彎道裡）
+        self.enter = c.get("enter", 15.0)          # 進入時車頭要離隧道方向幾度以內（進入後放寬到 window）
+        # 用畫面亮度認隧道（和起點無關）：195533 換了起點，用車頭方向認不到，隧道段沒啟動，
+        # 65% 出隧道進 S 彎開出賽道。畫面中段（640×480 的第 150–330 列）平均亮度：隧道裡 14–32，
+        # 其他地方幾乎都在 40 以上（另外出發後約 13 s 有一處也會暗 1 秒左右，一起限速）
+        self.dark = c.get("dark", 40)              # 亮度低於這個算暗，0 = 不用
+        self.dark_n = c.get("dark_n", 3)           # 連續幾張才算
+        self.after_dark_s = c.get("after_dark_s", 2.5)   # 變亮後再維持幾秒（出隧道接 S 彎）
+        self.v_after = c.get("v_after", 45)
+        self.reset()
+
+    def reset(self):
+        self.yaw0 = self.t_start = self.t_in = None
+        self.prev = None                            # (t, yaw) 上一張，算車頭轉速
+        self.n_dark, self.t_dark = 0, None          # 連續幾張暗、最後一次暗的時間
+        self.in_dark = False
+        self.active = False
+        self.mode = ""                              # 寫紀錄用："" / "on"
+
+    @property
+    def ld_extra(self):
+        """給 Controller：前視多加多少（m）。"""
+        return self.ld if self.in_dark else 0.0    # 只在隧道裡縮短：岔路直線也縮短會左右晃
+
+    def _dark_update(self, t, frame):
+        """回傳 (隧道裡, 剛出隧道)。"""
+        if not self.dark or frame is None:
+            return False, False
+        m = float(cv2.cvtColor(frame[150:330:4, ::4], cv2.COLOR_BGR2GRAY).mean())
+        self.n_dark = self.n_dark + 1 if m < self.dark else 0
+        if self.n_dark >= self.dark_n:
+            if not self.in_dark:
+                print(f"[tunnel] 畫面變暗（{m:.0f}）：隧道，限速 {self.v}%")
+            self.in_dark, self.t_dark = True, t
+        elif self.in_dark and self.n_dark == 0:
+            self.in_dark = False
+            print(f"[tunnel] 出隧道：{self.after_dark_s:.1f} 秒內最快 {self.v_after}%")
+        after = not self.in_dark and self.t_dark is not None and t - self.t_dark < self.after_dark_s
+        return self.in_dark, after
+
+    @property
+    def y_extra(self):
+        """給 Controller：目標點橫向多偏多少（m，左正）。"""
+        return self.y_bias if self.active else 0.0
+
+    def start(self, t, yaw):
+        """出發時呼叫：記下出發方向。"""
+        self.yaw0, self.t_start, self.t_in, self.active = yaw, t, None, False
+
+    def update(self, t, yaw, v, running, frame=None):
+        """回傳限速後的速度。不在隧道段時原樣回傳。"""
+        self.mode = ""
+        dark, after = self._dark_update(t, frame) if (running and self.on) else (False, False)
+        if not running:
+            self.in_dark = False
+        v = self._heading_update(t, yaw, v, running)
+        if dark:
+            self.mode = "dark"
+            v = min(v, self.v)
+        elif after and not self.active:
+            self.mode = "after"
+            v = min(v, self.v_after)
+        return v
+
+    def _heading_update(self, t, yaw, v, running):
+        if self.yaw0 is None and yaw is not None and self.t_start is not None and t - self.t_start < 3.0:
+            self.yaw0 = yaw                         # 出發那一刻 IMU 還沒讀到（192130）：用第一個讀到的值
+        if not self.on or not running or yaw is None or self.yaw0 is None:
+            self.active = False
+            return v
+        rate = 0.0
+        if self.prev is not None and t > self.prev[0]:
+            rate = (yaw - self.prev[1]) / (t - self.prev[0])
+        self.prev = (t, yaw)
+        rel = yaw - self.yaw0 - self.yaw_offset
+        laps = round(-rel / 360.0)
+        err = rel + 360.0 * laps                    # 離隧道方向幾度（左正）
+        inside = laps >= 1 and abs(err) <= self.window and t - self.t_start >= self.after_s
+        if not inside:
+            if self.active:
+                print(f"[tunnel] 離開隧道段（車頭 {err:+.0f}°）")
+            self.t_in, self.active = None, False
+            return v
+        # 要進入時車頭要幾乎不轉（直線）：193243 起點換了，第一圈 21 s 一個大彎掃過這個方向也開了 2 秒。
+        # 已經進入後不管轉速（拱門前要往左拐）
+        if not self.active and (abs(rate) > self.max_rate or abs(err) > self.enter):
+            self.t_in = None
+            return v
+        self.t_in = t if self.t_in is None else self.t_in
+        if not self.active and t - self.t_in >= self.min_s:
+            self.active = True
+            print(f"[tunnel] 進入岔路 / 隧道段（第 {laps} 圈，車頭 {err:+.0f}°）：限速 {self.v}%、目標往左 {self.y_bias * 100:.0f} cm")
+        if not self.active:
+            return v
+        self.mode = "on"
+        return min(v, self.v_zone)

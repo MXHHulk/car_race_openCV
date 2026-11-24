@@ -1,0 +1,141 @@
+# 2026-10-30 使用者貼的 Orin 設定，inner_bias.enable 依 run_20261030_201818 的 bias 欄改 true（實車已開）。
+camera:
+  device: 0
+  width: 640
+  height: 480
+  fps: 30
+  v4l2_ctrls: {}
+geometry:
+  cam_height: 0.15
+  hfov: 70.0
+  cam_to_rear_axle: 0.12
+  wheelbase: 0.28
+  track_width: 0.16
+  lane_width: 0.54
+  car_width: 0.30
+vision:
+  baseline: ../baseline.json
+  roi_top: 0.32
+  roi_bottom: 0.77
+  thresh: 0
+  min_thresh: 60
+  smooth: 0.5
+  curve_px: 2.5
+  slope_deg: 3.0
+  min_span: 0.3
+  cutoff_w: 0.2
+  nwin: 14
+  margin: 18
+  minpix: 6
+control:
+  lookahead: 0.45
+  lookahead_per_speed: 0.0
+  fwa_limit: 44
+  fwa_trim: 0
+  v_max: 40
+  v_min: 24
+  k_curv: 0.25
+  uphill_boost: 8
+  downhill_factor: 0.6
+  slope_memory: 3.0
+  accel_per_s: 60
+  differential: true
+  diff_gain: 0.8
+  diff_from: 25
+  speed_profile:          # 依前輪角度決定速度（見 controller.py _profile_speed），開了就不用 v_max、k_curv、坡度判斷
+    enable: true
+    v_straight: 55
+    v_curve: 36
+    fwa_low: 8
+    fwa_high: 24
+    attack_s: 0.1
+    release_s: 0.6
+    down_v: 30
+    down_s: 14
+    down_ld: 0.15
+    straight_ld: 0.12
+  stall:
+    quick_fwa: 36
+    quick_m: 1.6
+    quick_boost: 15
+    total_max: 50
+    early_fwa: 40
+    early_m: 4.0
+    enable: true
+    boost_per_s: 40
+    boost_max: 45
+    release: 1.4
+    release_s: 1.0
+    drop_per_s: 15
+    floor_ratio: 0.7
+    floor_s: 3.0
+    hold_s: 0.3
+  hilltop:
+    rearm_s: 20.0
+    enable: true
+    arm_boost: 10
+    time_s: 7.0
+    v_max: 50
+    fast_motion: 4.0
+    v_min: 50
+    start_ignore_s: 3.0
+    junction:
+      enable: true
+      detect_fwa: -99
+      detect_s: 0.1
+      window_s: 3.0
+      free_s: 4.5
+      ramp_fwa: 18
+      ramp_k: 0.3
+      ramp_xr: 500
+      ramp_px: 0.25
+      ramp_guard: 30
+      post_fwa: 12
+      post_s: 6.0
+      post_lmax: 4
+      force_s: 9.8
+      dash_near: 320
+      dash_wait: 0.6
+      turn_fwa: -40
+      turn_s: 0.95
+      turn_yaw: 66
+      turn_max_s: 2.0
+      hold_yaw: 96
+      hold_left: 6
+      straight_s: 3.0
+      bend_fwa: 36
+      bend_yaw: 30
+      bend_from: 5.0
+      bend_to: 6.8
+      align: true
+      align_yaw: 75
+      speed: 35
+  corner:
+    enable: false
+    out_offset: 0.10
+    trigger: 0.30
+    wheelbase: 1.26
+  k_i: 60
+  i_leak_s: 3.0
+  i_max: 15
+  inner_bias:
+    enable: true
+    k: 0.10
+    inner_max: 0.06
+    attack_s: 0.3
+    release_s: 3.0
+safety:
+  lost_timeout: 0.3
+  down_lost_s: 1.0
+  lost_speed_factor: 0.5
+  sta_timeout: 0.5
+  idle_steer: true
+link:
+  port: /dev/ttyTHS1
+  baud: 115200
+  hz: 20
+debug:
+  stream: true
+  port: 8080
+  stream_hz: 10
+  log_dir: ../logs

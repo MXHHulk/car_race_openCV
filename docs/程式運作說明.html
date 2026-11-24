@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>程式運作說明</title>
+<style>
+:root {
+  --bg: #f7f7f5; --panel: #ffffff; --text: #1d1f21; --muted: #5f6368; --line: #e2e2de;
+  --accent: #2f6fdb; --accent-soft: #e8f0fd; --code-bg: #f1f1ee; --warn: #b3541e; --warn-soft: #fbefe6;
+  --run: #2e8b57; --lost: #c98a00; --stop: #c0392b; --idle: #7a7a7a;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17181a; --panel: #1f2124; --text: #e6e6e3; --muted: #a0a4a8; --line: #33363a;
+    --accent: #7aa7ff; --accent-soft: #23304a; --code-bg: #26292d; --warn: #f0a070; --warn-soft: #3a2a20;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #17181a; --panel: #1f2124; --text: #e6e6e3; --muted: #a0a4a8; --line: #33363a;
+  --accent: #7aa7ff; --accent-soft: #23304a; --code-bg: #26292d; --warn: #f0a070; --warn-soft: #3a2a20;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.7 "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
+}
+.layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); max-width: 1200px; margin: 0 auto; }
+nav {
+  position: sticky; top: 0; height: 100vh; overflow-y: auto; padding: 24px 12px 24px 16px;
+  border-right: 1px solid var(--line); font-size: 14px;
+}
+nav .title { font-weight: 700; margin-bottom: 12px; }
+nav a { display: block; color: var(--muted); text-decoration: none; padding: 3px 8px; border-radius: 6px; }
+nav a:hover { background: var(--accent-soft); color: var(--accent); }
+nav .group { margin-top: 14px; font-size: 12px; color: var(--muted); letter-spacing: .05em; padding-left: 8px; }
+main { padding: 32px 40px 80px; min-width: 0; }
+h1 { font-size: 30px; margin: 0 0 8px; }
+h2 { font-size: 22px; margin: 48px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--line); scroll-margin-top: 16px; }
+h3 { font-size: 18px; margin: 28px 0 8px; scroll-margin-top: 16px; }
+p, li { max-width: 72ch; }
+.lead { color: var(--muted); }
+code { font-family: "Cascadia Code", Consolas, monospace; font-size: .9em; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+pre {
+  background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px;
+  overflow-x: auto; font-size: 13.5px; line-height: 1.55; margin: 8px 0 16px;
+}
+pre code { background: none; padding: 0; font-size: inherit; }
+.cm { color: var(--muted); font-style: italic; }
+table { border-collapse: collapse; width: 100%; margin: 8px 0 20px; font-size: 15px; background: var(--panel); }
+.tbl { overflow-x: auto; }
+th, td { border: 1px solid var(--line); padding: 7px 10px; text-align: left; vertical-align: top; }
+th { background: var(--accent-soft); font-weight: 600; white-space: nowrap; }
+td code { white-space: nowrap; }
+.note { background: var(--warn-soft); border-left: 4px solid var(--warn); padding: 10px 14px; border-radius: 6px; margin: 14px 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 20px; margin: 14px 0; }
+.file { font-family: Consolas, monospace; font-size: 13px; color: var(--accent); font-weight: 600; }
+.flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 10px 0 18px; }
+.flow span { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 14px; }
+.flow b { color: var(--muted); font-weight: 400; }
+.st { display: inline-block; font-weight: 700; font-size: 13px; padding: 1px 8px; border-radius: 4px; color: #fff; }
+.st.run { background: var(--run); } .st.lost { background: var(--lost); } .st.stop { background: var(--stop); } .st.idle { background: var(--idle); }
+details { margin: 8px 0 16px; }
+summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+.theme { float: right; font-size: 13px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; }
+  nav { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 16px; }
+  nav a { display: inline-block; }
+  main { padding: 20px 16px 60px; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav>
+  <div class="title">目錄</div>
+  <a href="#start">一、啟動時做什麼</a>
+  <a href="#frame">二、每張畫面做的事</a>
+  <a href="#state">三、四種狀態</a>
+  <a href="#lap">四、跑一圈的流程</a>
+  <a href="#cases">五、情況與反應</a>
+  <a href="#params">六、參數怎麼調</a>
+  <a href="#steps">七、調參步驟</a>
+  <a href="#term">八、終端機訊息</a>
+  <a href="#log">九、紀錄檔怎麼看</a>
+  <div class="group">程式碼導讀</div>
+  <a href="#files">檔案分工</a>
+  <a href="#c-main">main.py 主迴圈</a>
+  <a href="#c-step">main.py Pilot.step</a>
+  <a href="#c-vision">vision.py 找線</a>
+  <a href="#c-ctl">controller.py 轉向與速度</a>
+  <a href="#c-stall">stall.py 卡住偵測</a>
+  <a href="#c-hill">hilltop.py 爬坡模式</a>
+  <a href="#c-junc">hilltop.py 路口動作</a>
+  <a href="#c-yaw">yaw.py 車頭角度</a>
+  <a href="#c-link">link.py 通訊</a>
+</nav>
+
+<main>
+<button class="theme" id="themeBtn" type="button">切換深淺色</button>
+<h1>main.py --record 程式運作說明</h1>
+<p class="lead">車子跑起來時程式做什麼、什麼情況會切換動作、參數怎麼調，以及每個程式檔的關鍵程式碼。</p>
+<div class="note">參數值以 2026-11-01 最後一次貼上的 Orin 設定為準。實際值請看 Orin 上的 <code>~/orin_tools/lane/config.yaml</code>。電腦上的 <code>config.yaml</code> 有些功能是關的，不是實際跑車用的版本。</div>
+
+<h2 id="start">一、啟動時做什麼</h2>
+<p>在 <code>~/orin_tools/lane</code> 執行：</p>
+<pre><code>python3 main.py --record</code></pre>
+<ol>
+  <li>讀取 <code>config.yaml</code>，並設定鏡頭曝光等參數。</li>
+  <li>開啟鏡頭和 UART。</li>
+  <li>載入 <code>../baseline.json</code>，用來把畫面換算成實際距離。</li>
+  <li>開啟除錯畫面 <code>http://&lt;ORIN_IP&gt;:8080</code>。</li>
+  <li>建立紀錄檔 <code>~/orin_tools/logs/run_日期_時間.csv</code>。</li>
+  <li>收到第一張畫面時，開始錄同名的 <code>.mp4</code>。</li>
+  <li>進入 <span class="st idle">IDLE</span>，<b>後輪不動</b>，但前輪會跟著畫面轉。</li>
+</ol>
+<div class="tbl"><table>
+  <tr><th>按鍵</th><th>狀態變化</th></tr>
+  <tr><td>Enter</td><td>IDLE → RUN，出發</td></tr>
+  <tr><td>Enter</td><td>RUN 或 LOST → STOP，停車</td></tr>
+  <tr><td>Enter</td><td>STOP → IDLE，回到待命，要再按一次才出發</td></tr>
+  <tr><td>q 再按 Enter</td><td>結束程式，存好紀錄和影片</td></tr>
+</table></div>
+<p><code>--record</code> 只多存原始影片，不影響控制。沒加時只有 CSV，事後沒有畫面可以查。</p>
+<p>其他選項：<code>--dry-run</code> 不開序列埠、<code>--source 影片.mp4</code> 用影片重播、<code>--go</code> 啟動後直接出發、<code>--no-stream</code> 不開除錯畫面、<code>--save-video</code> 存疊圖影片。</p>
+
+<h2 id="frame">二、每張畫面做的事</h2>
+<p>約每秒 30 次，依序執行（全部在 <code>Pilot.step()</code> 裡，見<a href="#c-step">程式碼導讀</a>）：</p>
+<ol>
+  <li><b>取畫面：</b>只取最新一張。有 <code>--record</code> 就先寫入影片。</li>
+  <li><b>找線：</b><code>vision.py</code> 找出左右白線，換算成車身座標，算出中線、偏移和曲率。</li>
+  <li><b>更新狀態：</b>判斷 RUN、LOST、STOP。</li>
+  <li><b>算前輪：</b>Pure Pursuit 朝中線前方的目標點轉向，再加積分修正。</li>
+  <li><b>算速度：</b>依前輪角度決定直線或彎道速度。</li>
+  <li><b>卡住與車頭：</b><code>stall.py</code> 判斷卡住或進坡，<code>yaw.py</code> 更新車頭角度。</li>
+  <li><b>爬坡判斷：</b><code>hilltop.py</code> 決定是否進入爬坡模式。</li>
+  <li><b>路段限制：</b>坡道限制前輪，下坡前限制前輪和速度。</li>
+  <li><b>路口動作：</b>左轉、直走、對準、右轉期間，直接覆蓋前輪和速度。</li>
+  <li><b>決定後輪：</b>卡住加速中或爬坡中兩輪同速，其他情況依前輪角度用差速。</li>
+  <li><b>送出與記錄：</b>UART 每秒 20 次送給 BMduino，並寫一行 CSV。</li>
+</ol>
+
+<h2 id="state">三、四種狀態</h2>
+<div class="tbl"><table>
+  <tr><th>狀態</th><th>意思</th><th>車子行為</th></tr>
+  <tr><td><span class="st idle">IDLE</span></td><td>待命</td><td>後輪 0，前輪跟著畫面轉</td></tr>
+  <tr><td><span class="st run">RUN</span></td><td>正常行駛</td><td>循線</td></tr>
+  <tr><td><span class="st lost">LOST</span></td><td>看不到線</td><td>維持最後轉角、減速</td></tr>
+  <tr><td><span class="st stop">STOP</span></td><td>停車</td><td>速度 0</td></tr>
+</table></div>
+<div class="tbl"><table>
+  <tr><th>觸發</th><th>結果</th></tr>
+  <tr><td>RUN 中完全看不到線</td><td>RUN → LOST，路口動作期間不會切換</td></tr>
+  <tr><td>LOST 中重新看到線</td><td>LOST → RUN</td></tr>
+  <tr><td>LOST 超過 0.3 秒</td><td>STOP</td></tr>
+  <tr><td>LOST 超過 1 秒，且在爬坡或直走結束後 6 秒內</td><td>STOP，避免停在坡上</td></tr>
+  <tr><td>超過 0.5 秒沒收到 BMduino 回報</td><td>STOP</td></tr>
+  <tr><td>1 秒沒有新畫面</td><td>STOP</td></tr>
+  <tr><td>按 Enter</td><td>見第一節</td></tr>
+</table></div>
+<p>BMduino 也有自己的保護：0.5 秒沒收到有效指令，就自動停馬達。</p>
+
+<h2 id="lap">四、跑一圈的流程</h2>
+<div class="flow">
+  <span>出發</span><b>→</b><span>平地循線</span><b>→</b><span>進坡判斷</span><b>→</b><span>爬坡模式</span><b>→</b><span>看到虛線</span><b>→</b><span>左轉</span><b>→</b><span>直走</span><b>→</b><span>對準下坡</span><b>→</b><span>落地</span><b>→</b><span>右轉</span><b>→</b><span>回到循線</span><b>→</b><span>下一圈</span>
+</div>
+
+<h3>平地循線</h3>
+<ul>
+  <li>前輪小於 8° 時用 <code>v_straight</code>，大於 24° 時用 <code>v_curve</code>，中間平滑過渡。</li>
+  <li>前輪打大時馬上減速，回正後約 0.6 秒慢慢加速。</li>
+  <li>前輪超過 25° 才開差速，超過越多差越大。</li>
+  <li>右彎時目標往內側靠，避免進坡時貼著左邊。</li>
+</ul>
+
+<h3>卡住與進坡</h3>
+<div class="tbl"><table>
+  <tr><th>條件</th><th>動作</th></tr>
+  <tr><td>前輪 ≥ 40°，且最近 3 張畫面變化 &lt; 4</td><td>馬上加速 15%，關差速</td></tr>
+  <tr><td>前輪 ≥ 36°，且最近 5 張畫面變化 &lt; 1.6</td><td>馬上加速 15%，關差速</td></tr>
+  <tr><td>0.5 秒畫面變化中位數 &lt; 0.6，持續 0.5 秒</td><td>判定卡住，每秒加 25%，最多 45%</td></tr>
+</table></div>
+<p>卡住時前輪不動，積分暫停。除了爬坡模式，總速度不超過 <code>total_max</code>。</p>
+
+<h3>爬坡模式</h3>
+<p><b>進入條件要全部成立：</b></p>
+<ul>
+  <li>卡住加速 ≥ 10%。</li>
+  <li>這次卡住發生在出發 3 秒後。</li>
+  <li>上次爬坡結束已超過 20 秒。</li>
+</ul>
+<p><b>爬坡中：</b></p>
+<ul>
+  <li>速度固定 50%，兩輪同速。</li>
+  <li>不用右彎靠內，畫面不平行時只看左線。</li>
+  <li>加速退掉後，前輪限制 ±18°，並用車頭角度修正。</li>
+  <li>右線像素位置小於 500 時，不准往右打，並往左修，最多 −30°。</li>
+  <li>加速退掉 7 秒後結束爬坡模式。</li>
+</ul>
+
+<h3>路口左轉</h3>
+<ul>
+  <li>加速退掉 4.5 秒後開始找虛線。</li>
+  <li>連續 2 張看到 2 塊以上方塊，就算看到虛線。</li>
+  <li>虛線到畫面第 320 列時左轉。看到後最多等 0.6 秒。</li>
+  <li>都沒看到時，加速退掉 9.8 秒後直接左轉。</li>
+  <li>前輪 −40°，速度 35%，車頭轉到 66° 或轉滿 2 秒就回正。回正後車頭還會再滑。</li>
+</ul>
+
+<h3>直走、對準、右轉</h3>
+<div class="tbl"><table>
+  <tr><th>階段</th><th>時間</th><th>動作</th></tr>
+  <tr><td>直走</td><td>3 秒</td><td>維持車頭 96°，速度 35%</td></tr>
+  <tr><td>對準</td><td>到落地前</td><td>維持車頭 75°，速度 30%，不看線</td></tr>
+  <tr><td>右轉</td><td>最多 3 秒</td><td>前輪最多 +36°，車頭轉到約 38° 交回循線</td></tr>
+</table></div>
+<p>直走結束 5 秒後，畫面變化超過 20 就算落地。到 6.8 秒還沒偵測到，也會直接右轉。</p>
+<p>路口動作完成後 60 秒內不會再做一次，下一次爬坡才算下一圈。</p>
+
+<h2 id="cases">五、遇到什麼情況，程式怎麼反應</h2>
+<div class="tbl"><table>
+  <tr><th>情況</th><th>程式反應</th></tr>
+  <tr><td>只看到一條線</td><td>判斷是左線或右線，用路寬推算中線</td></tr>
+  <tr><td>兩條線太靠近</td><td>當成同一條線</td></tr>
+  <tr><td>完全看不到線</td><td>維持最後轉角減速，太久就停車</td></tr>
+  <tr><td>車子卡住</td><td>兩輪加速推出去</td></tr>
+  <tr><td>坡道上偏移突然跳動</td><td>先不採信，連續 6 張才接受</td></tr>
+  <tr><td>坡道靠上右側</td><td>右線保護往左修</td></tr>
+  <tr><td>鏡頭沒有畫面</td><td>停車</td></tr>
+  <tr><td>通訊中斷</td><td>Orin 和 BMduino 都會停車</td></tr>
+</table></div>
+
+<h2 id="params">六、參數怎麼調</h2>
+<p>每次只改一個，改動幅度要小，跑完再看紀錄。</p>
+
+<h3>速度</h3>
+<div class="tbl"><table>
+  <tr><th>參數</th><th>目前</th><th>調大</th><th>調小</th><th>什麼時候調</th></tr>
+  <tr><td><code>v_straight</code></td><td>55</td><td>直線更快，較容易蛇行</td><td>較穩，但變慢</td><td>直線搖晃就調小</td></tr>
+  <tr><td><code>v_curve</code></td><td>36</td><td>彎道更快，較容易壓外側線</td><td>較穩，但變慢</td><td>壓線或進坡撞左側就調小</td></tr>
+  <tr><td><code>total_max</code></td><td>50</td><td>起步和進坡更有力，但可能暴衝</td><td>起步較穩，但可能推不動</td><td>起步衝出去就調小</td></tr>
+  <tr><td><code>hilltop.v_min</code>、<code>v_max</code></td><td>50</td><td>爬坡更快，隆起處較不穩</td><td>較穩，但太低會爬不上去</td><td>坡道不穩就調小</td></tr>
+  <tr><td><code>down_v</code></td><td>30</td><td>下坡前較快，風險高</td><td>較穩，但太低可能卡住</td><td>下坡容易衝出去就調小</td></tr>
+  <tr><td><code>speed</code></td><td>35</td><td>路口動作較快</td><td>較穩</td><td>左轉位置不穩時調小</td></tr>
+</table></div>
+
+<h3>轉向</h3>
+<div class="tbl"><table>
+  <tr><th>參數</th><th>目前</th><th>調大</th><th>調小</th><th>什麼時候調</th></tr>
+  <tr><td><code>lookahead</code></td><td>0.45</td><td>較平順，但會切內線、轉得晚</td><td>反應快，但容易搖</td><td>全程都搖才動</td></tr>
+  <tr><td><code>straight_ld</code></td><td>0.12</td><td>直線更穩，出彎較慢</td><td>反應快，但可能蛇行</td><td>直線搖就調大</td></tr>
+  <tr><td><code>down_ld</code></td><td>0.15</td><td>下坡前較不晃，但轉得晚</td><td>反應快，但較晃</td><td>下坡前搖晃時調大</td></tr>
+  <tr><td><code>k_i</code></td><td>60</td><td>長彎較不偏外，但可能過修</td><td>較不過修，但會偏外</td><td>長彎一直偏外才調大</td></tr>
+  <tr><td><code>fwa_limit</code></td><td>44</td><td>可以打更大角，機構負擔大</td><td>舵機較安全，但轉不過急彎</td><td>通常不動</td></tr>
+  <tr><td><code>inner_bias.k</code></td><td>0.10</td><td>右彎更靠內</td><td>較靠中間</td><td>進坡貼左才調大</td></tr>
+  <tr><td><code>diff_from</code></td><td>25</td><td>差速較晚介入，直線較穩</td><td>轉彎力道大，但可能晃</td><td>彎道轉不過才調小</td></tr>
+</table></div>
+
+<h3>進坡</h3>
+<div class="tbl"><table>
+  <tr><th>參數</th><th>目前</th><th>調大</th><th>調小</th><th>什麼時候調</th></tr>
+  <tr><td><code>early_m</code></td><td>4.0</td><td>更早兩輪出力，但可能誤判</td><td>較不誤判，但停頓較久</td><td>進坡停頓就調大</td></tr>
+  <tr><td><code>early_fwa</code></td><td>40</td><td>較不誤判</td><td>更早觸發，但彎道可能誤判</td><td>彎道突然加速就調大</td></tr>
+  <tr><td><code>quick_boost</code></td><td>15</td><td>進坡更有力，但可能撞左側</td><td>較溫和</td><td>進坡衝太猛就調小</td></tr>
+</table></div>
+
+<h3>坡道</h3>
+<div class="tbl"><table>
+  <tr><th>參數</th><th>目前</th><th>調大</th><th>調小</th><th>什麼時候調</th></tr>
+  <tr><td><code>ramp_fwa</code></td><td>18</td><td>修正空間大，但怕估錯打太大</td><td>較穩，但修不回來</td><td>坡道大晃就調小</td></tr>
+  <tr><td><code>ramp_xr</code></td><td>500</td><td>較早防右，但可能過修</td><td>較晚介入</td><td>還是頂上右側就調大</td></tr>
+  <tr><td><code>ramp_px</code></td><td>0.25</td><td>右側保護更用力</td><td>較溫和</td><td>往左修過頭就調小</td></tr>
+  <tr><td><code>time_s</code></td><td>7</td><td>爬坡模式較久，到路口時速度較快</td><td>較早減速，可能在坡上失速</td><td>路口速度太快就調小</td></tr>
+</table></div>
+
+<h3>路口與下坡</h3>
+<div class="tbl"><table>
+  <tr><th>參數</th><th>目前</th><th>調大</th><th>調小</th><th>什麼時候調</th></tr>
+  <tr><td><code>dash_near</code></td><td>320</td><td>較晚左轉</td><td>較早左轉</td><td>太早轉、靠左邊界就調大</td></tr>
+  <tr><td><code>free_s</code></td><td>4.5</td><td>較不誤判，但可能錯過路口</td><td>較早找路口</td><td>爬坡變快時要調小</td></tr>
+  <tr><td><code>force_s</code></td><td>9.8</td><td>保底較晚</td><td>保底較早</td><td>虛線常沒看到時調整</td></tr>
+  <tr><td><code>turn_yaw</code></td><td>66</td><td>左轉更多</td><td>左轉更少</td><td>依左轉後位置調整</td></tr>
+  <tr><td><code>turn_max_s</code></td><td>2.0</td><td>轉得慢時也能轉到位</td><td>避免轉太久</td><td>左轉不足就調大</td></tr>
+  <tr><td><code>hold_yaw</code></td><td>96</td><td>直走更偏左</td><td>直走更偏右</td><td>路口後整體偏移時調</td></tr>
+  <tr><td><code>straight_s</code></td><td>3.0</td><td>直走較久</td><td>較早進入對準</td><td>依到下坡口的位置調</td></tr>
+  <tr><td><code>align_yaw</code></td><td>75</td><td>下坡更偏左</td><td>下坡更偏右</td><td>靠左側木條就調小</td></tr>
+  <tr><td><code>bend_yaw</code></td><td>30</td><td>右轉較少</td><td>右轉較多</td><td>右轉太多就調大</td></tr>
+  <tr><td><code>bend_fwa</code></td><td>36</td><td>右轉更急</td><td>右轉較緩</td><td>右轉太猛就調小</td></tr>
+  <tr><td><code>bend_to</code></td><td>6.8</td><td>保底較晚</td><td>保底較早</td><td>常常太晚右轉就調小</td></tr>
+  <tr><td><code>post_fwa</code></td><td>12</td><td>下坡前右修較有力</td><td>較保守</td><td>偏左修不回來就調大</td></tr>
+  <tr><td><code>post_lmax</code></td><td>4</td><td>允許往左修更多</td><td>較不往左</td><td>撞木條角就調大</td></tr>
+  <tr><td><code>down_lost_s</code></td><td>1.0</td><td>坡上看不到線撐更久</td><td>較快停車</td><td>視現場安全調整</td></tr>
+</table></div>
+
+<h3>只在特定情況動</h3>
+<div class="tbl"><table>
+  <tr><th>參數</th><th>用途</th></tr>
+  <tr><td><code>lost_timeout</code></td><td>平地看不到線多久停車，調大較不易中斷，但開出賽道時反應慢</td></tr>
+  <tr><td><code>exposure_time_absolute</code></td><td>曝光，太大會掉幀，不要超過 330</td></tr>
+  <tr><td><code>roi_top</code>、<code>roi_bottom</code></td><td>畫面使用範圍，改了要重建基準</td></tr>
+  <tr><td><code>cam_height</code>、<code>lane_width</code>、<code>wheelbase</code></td><td>實際尺寸，量好後不要隨便改</td></tr>
+</table></div>
+
+<h2 id="steps">七、調參步驟</h2>
+<ol>
+  <li>先看問題發生在哪個路段。</li>
+  <li>查第六節，只改一個參數。</li>
+  <li>用 <code>grep</code> 確認 Orin 的設定有改到。</li>
+  <li>跑車時加 <code>--record</code>。</li>
+  <li>抓回 CSV 和影片，比對改之前的結果。</li>
+  <li>穩定後才提高速度。提速後，爬坡相關時間也可能要跟著調。</li>
+</ol>
+<div class="note"><b>摔車或碰撞後，先跑 <code>tools/cam_align.py</code> 檢查鏡頭。</b>鏡頭歪了，調參數都沒有用。</div>
+
+<h2 id="term">八、終端機訊息</h2>
+<p>每秒會印一行：</p>
+<pre><code>RUN  線1.0 偏 -4.2cm 曲率+0.00 straight/flat → fwa   +8 速度  54/ 54  30.0 fps  處理 7.5 ms</code></pre>
+<div class="tbl"><table>
+  <tr><th>欄位</th><th>意思</th></tr>
+  <tr><td>線</td><td>1.0 是兩條線，0.5 是一條線，0 是看不到</td></tr>
+  <tr><td>偏</td><td>中線相對車子的位置，正值是中線在左</td></tr>
+  <tr><td>fwa</td><td>前輪角度，負左正右</td></tr>
+  <tr><td>速度</td><td>左輪 / 右輪 %</td></tr>
+  <tr><td>fps</td><td>應該接近 30</td></tr>
+</table></div>
+<div class="tbl"><table>
+  <tr><th>訊息</th><th>意思</th></tr>
+  <tr><td><code>[stall] 畫面不動</code></td><td>開始卡住加速</td></tr>
+  <tr><td><code>[hilltop] 卡住加速到 …</code></td><td>進入爬坡模式</td></tr>
+  <tr><td><code>[junction] 坡頂路口</code></td><td>開始左轉</td></tr>
+  <tr><td><code>[junction] 左轉 X 秒結束，車頭轉了 Y°</code></td><td>X 應該小於 2.0</td></tr>
+  <tr><td><code>[junction] 下坡到底</code></td><td>開始右轉</td></tr>
+  <tr><td><code>⚠ 鏡頭只有 … fps</code></td><td>曝光太長或系統太慢</td></tr>
+</table></div>
+
+<h2 id="log">九、紀錄檔怎麼看</h2>
+<div class="tbl"><table>
+  <tr><th>欄位</th><th>內容</th></tr>
+  <tr><td><code>state</code></td><td>狀態</td></tr>
+  <tr><td><code>confidence</code></td><td>線的狀況</td></tr>
+  <tr><td><code>offset</code></td><td>偏移，公尺</td></tr>
+  <tr><td><code>fwa</code></td><td>前輪角度</td></tr>
+  <tr><td><code>bwl</code>、<code>bwr</code></td><td>左右後輪速度</td></tr>
+  <tr><td><code>motion</code></td><td>畫面變化，越大代表車動越快或顛簸</td></tr>
+  <tr><td><code>boost</code></td><td>卡住加速</td></tr>
+  <tr><td><code>hill</code></td><td><code>climb</code> 代表爬坡模式</td></tr>
+  <tr><td><code>junction</code></td><td><code>turn</code>、<code>straight</code>、<code>align</code>、<code>bend</code></td></tr>
+  <tr><td><code>yaw</code></td><td>累積車頭角度，正值往左，負值往右</td></tr>
+  <tr><td><code>bias</code></td><td>右彎往內側靠的量</td></tr>
+  <tr><td><code>fps</code></td><td>影像速度</td></tr>
+</table></div>
+
+<!-- ================= 程式碼導讀 ================= -->
+<h2 id="files">十、程式碼導讀：檔案分工</h2>
+<p>以下程式碼節錄自 <code>orin_tools/lane/</code>，為了好讀有刪掉部分註解和分支，用 <code>…</code> 標示。完整內容請看原檔。</p>
+<div class="tbl"><table>
+  <tr><th>檔案</th><th>負責</th><th>重點</th></tr>
+  <tr><td class="file">main.py</td><td>程式入口、主迴圈、<code>Pilot</code></td><td>每張畫面呼叫 <code>Pilot.step()</code>，把所有模組串起來</td></tr>
+  <tr><td class="file">camera.py</td><td>取像執行緒</td><td>只保留最新一張畫面</td></tr>
+  <tr><td class="file">vision.py</td><td>找線、換算距離</td><td>算出中線、偏移、曲率</td></tr>
+  <tr><td class="file">controller.py</td><td>前輪角度、速度、差速</td><td>Pure Pursuit、積分、速度規劃</td></tr>
+  <tr><td class="file">stall.py</td><td>卡住偵測</td><td>畫面不動就加速</td></tr>
+  <tr><td class="file">hilltop.py</td><td>爬坡模式、坡頂路口</td><td><code>HilltopMode</code>、<code>Junction</code>、虛線偵測</td></tr>
+  <tr><td class="file">yaw.py</td><td>估車頭角度</td><td>看畫面上方背景的左右位移</td></tr>
+  <tr><td class="file">link.py</td><td>UART 通訊</td><td>每 50 ms 送一次指令</td></tr>
+  <tr><td class="file">corner.py</td><td>直角彎走線</td><td>目前 Orin 上關閉</td></tr>
+  <tr><td class="file">config.yaml</td><td>所有參數</td><td>Orin 上的才是實際使用的</td></tr>
+</table></div>
+
+<h3 id="c-main">main.py：主迴圈</h3>
+<p>取一張畫面 → 錄影 → <code>pilot.step()</code> 算指令 → 交給通訊執行緒 → 寫一行 CSV。1 秒沒畫面就停車。</p>
+<pre><code>while not quit_evt.is_set():
+    got = src.read(last_id)
+    if got is None:                       <span class="cm"># 1 秒沒有新畫面</span>
+        pilot.stop("鏡頭沒有畫面")
+        sender.set(0, 0, 0)
+        continue
+    last_id, t_frame, frame = got
+    if args.record:                       <span class="cm"># --record：原始畫面寫進 .mp4</span>
+        raw_writer.write(frame)
+    fwa, bwl, bwr = pilot.step(frame, t_frame, sender.sta_age())
+    sender.set(fwa, bwl, bwr)             <span class="cm"># 通訊執行緒每 50 ms 送最新的這組</span>
+    wlog.writerow({...})                  <span class="cm"># 每張畫面一行紀錄</span></code></pre>
+<p>按鍵由另一個執行緒處理：</p>
+<pre><code>def keyboard(pilot, quit_evt):
+    while not quit_evt.is_set():
+        line = sys.stdin.readline()
+        if line.strip().lower() == "q":
+            quit_evt.set()
+        else:
+            pilot.toggle()                <span class="cm"># IDLE→RUN、RUN/LOST→STOP、STOP→IDLE</span></code></pre>
+
+<h3 id="c-step">main.py：Pilot.step()</h3>
+<p><b>1. 狀態轉移。</b>坡道上或剛下坡時，看不到線可以撐比較久（<code>down_lost_s</code>），避免停在坡上。</p>
+<pre><code>res = self.res = self.det.process(frame)          <span class="cm"># 找線</span>
+if self.state in (RUN, LOST) and sta_age &gt; s["sta_timeout"]:
+    self.stop("超過 0.5 秒沒收到 STA")
+if self.state == RUN and res.confidence == 0 and not self.junc.active:
+    self.state, self.t_lost = LOST, t
+    self.v_lost = max(c["v_min"], self.ctl.v * s["lost_speed_factor"])
+elif self.state == LOST:
+    if res.confidence &gt; 0:
+        self.state = RUN
+    elif t - self.t_lost &gt; (down_lost_s if 爬坡中或剛下坡 else lost_timeout):
+        self.stop("找不到線")</code></pre>
+
+<p><b>2. 設定控制器的旗標。</b>卡住時暫停積分、爬坡關掉右彎靠內、下坡前看遠一點。</p>
+<pre><code>stuck = self.state == RUN and self.stall.med &lt; self.stall.thresh and self.ctl.v &gt; 0
+self.ctl.hold_i = stuck                           <span class="cm"># 卡住時積分不累積</span>
+self.ctl.no_bias = self.hill.active               <span class="cm"># 爬坡不靠內</span>
+if self.junc.after_turn(t, self.junc.post_s):
+    self.ctl.hold_i = True                        <span class="cm"># 下坡前線不可靠，積分也暫停</span>
+if 路口動作結束後 down_s 秒內:
+    self.ctl.ld_extra = sp["down_ld"]             <span class="cm"># 下坡前看遠 0.15 m</span></code></pre>
+
+<p><b>3. 算前輪和速度。</b>卡住時前輪維持不動，只算速度。</p>
+<pre><code>if self.state == RUN and not stuck:
+    fwa = self.ctl.steer(res, self.ctl.v, t)
+    v = self.ctl.speed(res, dt, t)
+elif self.state == RUN:
+    v = self.ctl.speed(res, dt, t)                <span class="cm"># 卡住：前輪不動</span>
+elif self.state == LOST:
+    v = self.ctl.ramp(self.v_lost, dt)            <span class="cm"># 維持轉角、減速</span>
+else:
+    v = 0.0                                       <span class="cm"># IDLE / STOP</span></code></pre>
+
+<p><b>4. 卡住加速、爬坡、限速。</b>順序很重要：先加卡住加速，再套上限。</p>
+<pre><code>extra = self.stall.update(frame, t, driving, fwa)  <span class="cm"># 卡住要加多少 %</span>
+self.yaw.update(frame, t)
+floor, cap = self.hill.update(self.stall, t, driving)
+self.det.only_left = self.hill.active              <span class="cm"># 爬坡時只信左線</span>
+if 坡頂到路口或下坡 and v &gt; down_v:
+    v = down_v                                     <span class="cm"># 30%</span>
+if cap is not None and v &gt; cap:
+    v = cap
+if extra:
+    v = min(100.0, v + extra, total_max if cap is None else cap)
+if floor is not None and v &lt; floor:
+    v = floor                                      <span class="cm"># 爬坡最低 50%</span></code></pre>
+
+<p><b>5. 路段限制、路口動作、後輪。</b>路口動作回傳非 None 時，直接蓋掉前面算的前輪和速度。</p>
+<pre><code>ramp = self.junc.ramp_steer(fwa, self.hill.active, t, self.yaw, frame)
+if self.state == RUN and self.hill.active:
+    fwa = ramp                                     <span class="cm"># 坡道：限制 ±18° + 右線保護</span>
+elif self.state == RUN:
+    fwa = self.junc.post_limit(fwa, t)             <span class="cm"># 下坡前：右 12° / 左 4°</span>
+jf, jv = self.junc.update(fwa, self.hill.active, self.stall.active, t, ...)
+if jf is not None:
+    fwa, v, extra = jf, jv, 0.0                    <span class="cm"># 左轉 / 直走 / 對準 / 右轉</span>
+if extra or (self.hill.active and jf is None):
+    bwl = bwr = v                                  <span class="cm"># 卡住或爬坡：兩輪同速</span>
+else:
+    bwl, bwr = self.ctl.wheels(v, fwa)             <span class="cm"># 差速</span>
+return (fwa, bwl, bwr)</code></pre>
+
+<h3 id="c-vision">vision.py：找線與算中線</h3>
+<p><code>process()</code> 先用 <code>lane_view_check.analyse()</code> 找出左右白線的像素，再換成車身座標（公尺），擬合出中線。中線係數 <code>(a, b, c)</code> 代表 <code>y = a·x² + b·x + c</code>，x 是往前、y 是往左。</p>
+<pre><code>pts = self._centerline(r["_left"], r["_right"], res)
+if self._jump(pts, res):                          <span class="cm"># 爬坡：一張跳太多先不信</span>
+    return res
+coef = np.polyfit(x, y, 2)
+coef = smooth * 上一張 + (1 - smooth) * coef      <span class="cm"># smooth = 0.5</span>
+res.offset = polyval(coef, x0)                    <span class="cm"># 最近處中線位置 = 偏移</span>
+res.heading = atan(2a·x0 + b)
+res.curvature = 2a / (1 + slope²)^1.5</code></pre>
+<p><b>兩條線：</b>取兩線中間。路寬太窄（小於一半）或近處太靠近，就當成同一條線。</p>
+<p><b>一條線：</b>看它比較接近上一張的左線還是右線，再往另一側推半個路寬。</p>
+<pre><code>y_near = _near_y(one)
+if self._y_lr is not None:
+    <span class="cm"># 比較靠近上一張的左線 → 是左線（side = -1，往右推）</span>
+    side = -1 if abs(y_near - self._y_lr[0]) &lt;= abs(y_near - self._y_lr[1]) else 1
+...
+return np.stack([x, y], 1) + side * n * half      <span class="cm"># 沿法向量平移半個路寬</span></code></pre>
+<p><b>爬坡只看左線：</b>兩條線不平行時（右邊是虛線、膠帶），丟掉右線。</p>
+<pre><code>if self.only_left and L is not None and R is not None and not parallel and long_l:
+    R = None</code></pre>
+<p><b>目標點：</b>沿中線找離後輪軸 <code>ld</code> 公尺的點，看不到那麼遠就取最遠點。</p>
+<pre><code>def target_point(res, ld):
+    xs = np.linspace(x0, x1, 200)
+    ys = np.polyval(res.center, xs)
+    d = np.hypot(xs, ys)
+    i = argmax(d &gt;= ld) if (d &gt;= ld).any() else len(xs) - 1
+    return xs[i], ys[i]</code></pre>
+
+<h3 id="c-ctl">controller.py：轉向與速度</h3>
+<p><b>Pure Pursuit。</b>前視距離 = <code>lookahead</code> + 下坡加的 + 直線加的。直線時 <code>straight</code> 是 1，彎道是 0。</p>
+<pre><code>ld = c["lookahead"] + self.ld_extra
+ld += sp["straight_ld"] * self.straight           <span class="cm"># 直線看遠一點，減少蛇行</span>
+self.target = target_point(res, ld)
+self.target = (x, y + self._inner_bias(res, t))   <span class="cm"># 右彎往內靠</span>
+alpha = atan2(y, x)
+delta = atan(2 * L * sin(alpha) / dist)           <span class="cm"># 正 = 左轉</span>
+fwa = -degrees(delta) + fwa_trim                  <span class="cm"># 協議：負左正右</span>
+fwa += self._integral(res, t)
+self.fwa = clamp(fwa, ±fwa_limit)</code></pre>
+
+<p><b>積分修正。</b>前輪會打滑，長彎會一直偏外側。把偏移累積起來，慢慢多轉一點，出彎後 3 秒左右衰減掉。</p>
+<pre><code>if not self.hold_i:
+    leak = exp(-dt / i_leak_s)
+    self.integ = self.integ * leak + (res.offset + self.bias) * dt
+return clamp(-k_i * self.integ, ±i_max)</code></pre>
+
+<p><b>速度規劃。</b>只看前輪角度。打大時 0.1 秒內跟上（減速快），回正時 0.6 秒才跟上（加速慢）。</p>
+<pre><code>a = abs(self.fwa)
+tau = attack_s if a &gt; self.fwa_lp else release_s
+self.fwa_lp += (a - self.fwa_lp) * min(1, dt / tau)
+s = self.straight = clamp((fwa_high - fwa_lp) / (fwa_high - fwa_low), 0, 1)
+return v_curve + (v_straight - v_curve) * s       <span class="cm"># 8° 以下全速，24° 以上彎道速</span></code></pre>
+<p>之後經過 <code>ramp()</code>：加速每秒最多 <code>accel_per_s</code>，減速立即生效。</p>
+
+<p><b>差速。</b>前輪超過 <code>diff_from</code> 才開始，打到 <code>fwa_limit</code> 時差最多。</p>
+<pre><code>r = clamp((abs(fwa) - diff_from) / (fwa_limit - diff_from), 0, 1)
+r = r if fwa &gt; 0 else -r                          <span class="cm"># 右轉時右輪是內側</span>
+return v * (1 + g * r), v * (1 - g * r)           <span class="cm"># (左輪, 右輪)</span></code></pre>
+
+<h3 id="c-stall">stall.py：卡住偵測</h3>
+<p>把畫面縮成 80×60 灰階，取中間一帶，和上一張比平均差多少，就是 <code>motion</code>。車子不動時約 0.3，正常行駛 1.5 以上。</p>
+<pre><code>def _motion(self, frame):
+    g = resize(gray(frame), (80, 60))[15:45]
+    m = mean(abs(g - self.prev))
+    self.prev = g
+    return m</code></pre>
+<p>三種觸發方式：</p>
+<pre><code>med = median(最近 15 張)                           <span class="cm"># 約 0.5 秒</span>
+if med &lt; thresh 持續 hold_s:                       <span class="cm"># 1. 真的卡住</span>
+    self.extra = min(boost_max, self.extra + boost_per_s * dt)
+elif med &gt; release 持續 release_s:                 <span class="cm"># 恢復正常：慢慢退</span>
+    floor = peak * floor_ratio if 剛卡住不久 else 0
+    self.extra = max(floor, self.extra - drop_per_s * dt)
+
+recent = 最近 5 張
+quick = abs(fwa) &gt;= quick_fwa and median(recent) &lt; quick_m      <span class="cm"># 2. 打大角又變慢</span>
+early = abs(fwa) &gt;= early_fwa and median(recent[-3:]) &lt; early_m <span class="cm"># 3. 打到快底，一掉速就動作</span>
+if quick or early:
+    self.extra = max(self.extra, quick_boost)     <span class="cm"># 馬上 +15%</span></code></pre>
+
+<h3 id="c-hill">hilltop.py：爬坡模式</h3>
+<pre><code>late = 這次卡住在出發 start_ignore_s 秒後           <span class="cm"># 排除起步</span>
+cool = 上次爬坡結束超過 rearm_s 秒                   <span class="cm"># 排除下坡底卡一下</span>
+if stall.extra &gt;= arm_boost and self.mode == "idle" and late and cool:
+    self.mode = "climb"
+if stall.extra &gt; 0:
+    self.t_boost = t
+if t - self.t_boost &gt;= time_s:                     <span class="cm"># 加速退掉 7 秒：結束</span>
+    self.reset()
+    return None, None
+return v_min, (v_max if 跑太快 else None)           <span class="cm"># (最低速度, 上限)</span></code></pre>
+<p><b>坡道轉向 <code>ramp_steer()</code>。</b>加速退掉後 0.5–2 秒的平均車頭方向當作坡道方向，之後偏多少就修多少；右線太靠近就不准往右。</p>
+<pre><code>el = t - self.t_free                               <span class="cm"># 加速退掉後幾秒</span>
+if el &lt; 2.0:
+    if el &gt;= 0.5: self.ramp_hist.append(yaw.value)
+elif self.ramp_ref is None:
+    self.ramp_ref = mean(self.ramp_hist)           <span class="cm"># 坡道方向</span>
+fwa += ramp_k * (yaw.value - self.ramp_ref)        <span class="cm"># 車頭太右 → 往左修</span>
+fwa = clamp(fwa, ±ramp_fwa)
+e = ramp_xr - right_line_x(frame)                  <span class="cm"># 右線離左邊多近</span>
+if e &gt; 0:
+    fwa = max(-ramp_guard, min(fwa, 0) - ramp_px * e)</code></pre>
+<p><code>right_line_x()</code> 直接看第 330 列的白色段，用上方第 290 列比對斜向（右線往上會往左斜），找出右線左緣的像素欄。</p>
+
+<h3 id="c-junc">hilltop.py：路口動作 Junction</h3>
+<p><b>虛線方塊偵測。</b>取第 160–400 列，灰階 &gt; 150 的連通區塊，要扁、實心、不碰邊，才算虛線。</p>
+<pre><code>def dash_blobs(frame):
+    g = gray(frame)[160:400]
+    _, _, st, _ = cv2.connectedComponentsWithStats((g &gt; 150).astype(np.uint8), 8)
+    return [b for b in st[1:]
+            if 30 &lt;= 寬 &lt;= 240 and 8 &lt;= 高 &lt;= 90 and 寬 &gt;= 1.3 * 高    <span class="cm"># 扁的</span>
+            and 面積 &gt;= 0.45 * 寬 * 高                                  <span class="cm"># 實心</span>
+            and 不碰上下邊緣]</code></pre>
+<p><b>什麼時候左轉。</b></p>
+<pre><code>near = 爬坡中 and 加速已退掉 free_s 秒
+forced = near and t - self.t_free &gt;= force_s       <span class="cm"># 保底</span>
+blobs = dash_blobs(frame) if near else []
+self.n_dash = self.n_dash + 1 if len(blobs) &gt;= 2 else 0
+if self.n_dash &gt;= 2 and self.t_dash is None:
+    self.t_dash = t                                <span class="cm"># 看到虛線了</span>
+if self.t_dash is not None:
+    close = 有方塊下緣到第 dash_near 列
+    forced = forced or close or t - self.t_dash &gt;= dash_wait
+if forced:
+    self.mode = "turn"
+    self.yaw0 = yaw.ref(t)                         <span class="cm"># 記下坡道方向，當作 0°</span></code></pre>
+<p><b>四個階段。</b><code>turned</code> 是車頭比坡道多轉了幾度（正 = 往左）。</p>
+<pre><code><span class="cm"># turn：前輪 -40°，轉到 turn_yaw 或 turn_max_s 秒</span>
+if self.mode == "turn" and (turned &gt;= turn_yaw or el &gt;= turn_max_s):
+    self.mode = "straight"
+<span class="cm"># straight：維持車頭 hold_yaw，往左最多修 hold_left</span>
+e = hold_k * (turned - hold_yaw)
+return clamp(e, -hold_left, hold_fwa), speed
+<span class="cm"># straight 滿 straight_s 秒 → align</span>
+<span class="cm"># align：不看線，維持車頭 align_yaw，速度 align_v</span>
+e = hold_k * (yaw.value - self.yaw0 - align_yaw)
+return clamp(e, ±hold_fwa), align_v
+<span class="cm"># 落地（bend_from 後 motion ≥ bend_m）或到 bend_to → bend</span>
+<span class="cm"># bend：右轉到 bend_yaw，差 bend_end 以內或 bend_s 秒就交回循線</span>
+e = yaw.value - self.yaw0 - bend_yaw
+return min(bend_fwa, e), speed</code></pre>
+<p><b>下坡前限制 <code>post_limit()</code>。</b>交回循線後 <code>post_s</code> 秒內，前輪限制在 −<code>post_lmax</code> ~ +<code>post_fwa</code>。</p>
+
+<h3 id="c-yaw">yaw.py：車頭角度</h3>
+<p>沒有 IMU，用畫面上方 110 列（背景）做相位相關，算出左右位移幾個像素，換成角度累加。</p>
+<pre><code>def update(self, frame, t):
+    g = gray(resize(frame[:110], (320, 55)))
+    (dx, _), _ = cv2.phaseCorrelate(self.prev, g)
+    if abs(dx) &lt; 30:                               <span class="cm"># 太大當雜訊</span>
+        self.value += dx / 320 * 70.0              <span class="cm"># 像素 → 度（水平視角 70°）</span>
+    self.prev = g
+
+def ref(self, t):
+    <span class="cm"># 最近 3 秒到 0.5 秒前的平均：坡道上車頭會晃，取平均才是坡道方向</span>
+    return mean(v for tt, v in self.hist if t - tt &gt;= 0.5)</code></pre>
+<p>這個值會慢慢漂移，所以只拿來量「短時間內轉了幾度」，每次路口都重新取基準 <code>yaw0</code>。</p>
+
+<h3 id="c-link">link.py：通訊</h3>
+<p>獨立執行緒固定每 50 ms 送一次最新指令，同時讀 BMduino 回傳的 STA。主迴圈只更新指令，不等通訊。</p>
+<pre><code>def _loop(self):
+    nxt = time.time()
+    while self._running:
+        cmd = self.cmd                             <span class="cm"># 最新的 (fwa, bwl, bwr)</span>
+        self.link.send(*cmd)                       <span class="cm"># CMD 封包，含檢查碼</span>
+        self.link.poll()                           <span class="cm"># 讀 STA，更新 sta_time</span>
+        nxt += self.period
+        time.sleep(max(0.0, nxt - time.time()))
+
+def sta_age(self):
+    return time.time() - self.link.sta_time        <span class="cm"># 超過 0.5 秒 → Pilot 停車</span></code></pre>
+<p>程式結束時 <code>close()</code> 會送 3 次停車再關序列埠。</p>
+</main>
+</div>
+<script>
+(function () {
+  var root = document.documentElement, btn = document.getElementById("themeBtn");
+  try { var s = localStorage.getItem("theme"); if (s) root.setAttribute("data-theme", s); } catch (e) {}
+  btn.addEventListener("click", function () {
+    var dark = root.getAttribute("data-theme") === "dark" ||
+      (!root.getAttribute("data-theme") && matchMedia("(prefers-color-scheme: dark)").matches);
+    var next = dark ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try { localStorage.setItem("theme", next); } catch (e) {}
+  });
+})();
+</script>
+</body>
+</html>

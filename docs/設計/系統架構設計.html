@@ -1,0 +1,396 @@
+<title>循跡自走車系統架構</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* 版面：單欄技術文件，左側章節編號對應實際資料流順序；表格與圖各自可橫向捲動 */
+:root{
+  --bg:#f6f7f8; --surface:#ffffff; --fg:#1b1f24; --muted:#5b6470; --line:#dde1e6;
+  --accent:#1d6fa5; --accent-soft:#e3f0f8; --code:#eef1f4;
+  --ok:#1e7a4f; --ok-soft:#e3f3ea; --warn:#8a5b00; --warn-soft:#fbf0d9; --bad:#b0322a; --bad-soft:#fbe7e5;
+  --sans:"Noto Sans TC","Microsoft JhengHei","PingFang TC",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",Consolas,"Cascadia Mono",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121417; --surface:#1a1d21; --fg:#e7eaee; --muted:#9aa3ad; --line:#2c3137;
+    --accent:#6cb4e4; --accent-soft:#16293a; --code:#22262b;
+    --ok:#6fd0a0; --ok-soft:#14301f; --warn:#f0c46a; --warn-soft:#33280f; --bad:#f2938a; --bad-soft:#3a1d1a;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121417; --surface:#1a1d21; --fg:#e7eaee; --muted:#9aa3ad; --line:#2c3137;
+  --accent:#6cb4e4; --accent-soft:#16293a; --code:#22262b;
+  --ok:#6fd0a0; --ok-soft:#14301f; --warn:#f0c46a; --warn-soft:#33280f; --bad:#f2938a; --bad-soft:#3a1d1a;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.75 var(--sans);padding-inline:16px;padding-block:0 64px}
+.wrap{max-width:900px;margin:0 auto}
+header{display:flex;gap:24px;align-items:center;padding-block:40px 24px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header svg{flex:none;width:96px;height:auto}
+header .t{flex:1;min-width:0}
+h1{font-size:30px;line-height:1.3;margin:0 0 6px;text-wrap:balance;font-weight:700}
+.lede{color:var(--muted);margin:0;max-width:62ch}
+nav{margin:24px 0 8px;font-size:14px;display:flex;flex-wrap:wrap;gap:6px 16px}
+nav a{color:var(--accent);text-decoration:none}
+nav a:hover,nav a:focus-visible{text-decoration:underline}
+section{padding-top:40px}
+h2{font-size:22px;margin:0 0 12px;display:flex;gap:12px;align-items:baseline;text-wrap:balance}
+h2 .n{font-family:var(--mono);font-size:14px;color:var(--accent);font-weight:500;flex:none}
+h3{font-size:17px;margin:28px 0 8px}
+p{margin:8px 0;max-width:68ch}
+ul,ol{margin:8px 0;padding-left:22px;max-width:68ch}
+li{margin:3px 0}
+code{font-family:var(--mono);font-size:13.5px;background:var(--code);padding:1px 6px;border-radius:4px}
+pre.code{font-family:var(--mono);font-size:13px;line-height:1.6;background:var(--code);padding:14px 16px;border-radius:8px;overflow-x:auto;margin:12px 0}
+.scroll{overflow-x:auto;margin:12px 0}
+table{border-collapse:collapse;width:100%;font-size:14.5px;background:var(--surface)}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:var(--code);font-weight:500;white-space:nowrap}
+td.num{font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:13.5px;white-space:nowrap}
+.note{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:12px 16px;margin:14px 0}
+.note.key{border-color:var(--accent);background:var(--accent-soft)}
+.note.warn{border-color:var(--warn);background:var(--warn-soft)}
+.note b{font-weight:500}
+.pill{display:inline-block;font-size:12px;font-weight:500;padding:1px 9px;border-radius:999px;white-space:nowrap}
+.p-ok{color:var(--ok);background:var(--ok-soft)} .p-warn{color:var(--warn);background:var(--warn-soft)} .p-bad{color:var(--bad);background:var(--bad-soft)}
+.figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:20px 0 4px}
+.fig{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;min-width:0}
+.fig .v{font-family:var(--mono);font-size:20px;font-weight:500;font-variant-numeric:tabular-nums}
+.fig .k{font-size:13px;color:var(--muted)}
+.mermaid{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px;overflow-x:auto;text-align:center}
+.phase{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;padding:12px 0;border-bottom:1px solid var(--line)}
+.phase:last-child{border-bottom:0}
+.phase .id{font-family:var(--mono);color:var(--accent);font-size:14px;padding-top:2px}
+.phase .body{min-width:0}
+.phase h4{margin:0;font-size:16px}
+.phase p{margin:2px 0}
+.exit{font-size:14px;color:var(--muted)}
+footer{margin-top:48px;padding-top:16px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+
+<div class="wrap">
+<header>
+  <svg viewBox="0 0 96 72" role="img" aria-label="黑底白線賽道示意">
+    <polygon points="30,4 66,4 94,70 2,70" fill="#16181b"/>
+    <line x1="36" y1="4" x2="14" y2="70" stroke="#f4f4f4" stroke-width="3"/>
+    <line x1="60" y1="4" x2="82" y2="70" stroke="#f4f4f4" stroke-width="3"/>
+    <line x1="48" y1="10" x2="48" y2="66" stroke="#4aa3dc" stroke-width="1.5" stroke-dasharray="4 4"/>
+  </svg>
+  <div class="t">
+    <h1>循跡自走車系統架構</h1>
+    <p class="lede">從鏡頭取像、在 Orin 上辨識黑底白線，到透過 UART 下指令給 BMduino 驅動舵機與馬達，讓車子不靠電腦、不靠網路自己跑完賽道。</p>
+  </div>
+</header>
+
+<nav aria-label="目錄">
+  <a href="#overview">總覽</a><a href="#hw">硬體與資料流</a><a href="#camera">鏡頭接收</a><a href="#method">YOLO 與 OpenCV</a>
+  <a href="#vision">辨識流程</a><a href="#control">控制</a><a href="#uart">下指令</a><a href="#mcu">BMduino</a>
+  <a href="#runtime">離線執行</a><a href="#safety">安全</a><a href="#code">程式結構</a><a href="#plan">開發順序</a><a href="#open">待決定事項</a>
+</nav>
+
+<section id="overview">
+  <h2><span class="n">00</span>總覽</h2>
+  <p>整台車分成五層，每一層只做一件事，並且只把結果交給下一層：</p>
+  <ol>
+    <li><b>取像</b>：USB 鏡頭持續拍照，只保留最新的一張。</li>
+    <li><b>辨識</b>：用 OpenCV 找出左右兩條白線，算出「車子偏離中線多少、車頭歪了多少、前方彎多急」。</li>
+    <li><b>控制</b>：把上面三個數字換算成前輪轉角 <code>fwa</code> 和後輪速度 <code>bwl</code>、<code>bwr</code>。</li>
+    <li><b>通訊</b>：每 50 ms 把最新的指令包成 CMD 封包，從 UART 送給 BMduino。</li>
+    <li><b>執行</b>：BMduino 解析指令，透過 PCA9685 轉舵機、透過驅動板轉馬達，並負責失聯時停車。</li>
+  </ol>
+  <div class="figs">
+    <div class="fig"><div class="v">320×240</div><div class="k">辨識用的影像大小</div></div>
+    <div class="fig"><div class="v">≥ 30 Hz</div><div class="k">辨識與控制的目標頻率</div></div>
+    <div class="fig"><div class="v">20 Hz</div><div class="k">CMD 送出頻率</div></div>
+    <div class="fig"><div class="v">0.3 s / 0.5 s</div><div class="k">找不到線停車 / 失聯停車</div></div>
+  </div>
+  <pre class="mermaid">
+flowchart LR
+  CAM["USB 鏡頭"] -->|"V4L2 MJPG"| CAP["取像執行緒"]
+  subgraph ORIN["Jetson Orin Nano（Python）"]
+    CAP --> VIS["辨識 · OpenCV"]
+    VIS --> CTL["控制 · Pure Pursuit + 速度規劃"]
+    CTL --> FSM["狀態機 · 待命 / 行駛 / 找不到線 / 停止"]
+    FSM --> TX["送指令執行緒 · 20 Hz"]
+    VIS -.-> DBG["除錯畫面 · 瀏覽器"]
+  end
+  TX -->|"UART ttyTHS1 · #lt;CMD,...,cs XX#gt;"| MCU
+  MCU -->|"#lt;STA,...,cs XX#gt;"| TX
+  subgraph BM["BMduino"]
+    MCU["解析 CMD · 失聯保護"] --> PCA["PCA9685 · I2C"]
+    MCU --> EN["D8 / D9 PWM"]
+  end
+  PCA --> SERVO["前輪舵機"]
+  PCA -->|"IN1~IN4"| DRV["DRV1011 驅動板"]
+  EN -->|"經 74LS14 → ENA / ENB"| DRV
+  DRV --> MOT["後輪馬達 ×2"]
+  MOT -.->|"編碼器"| MCU
+  </pre>
+</section>
+
+<section id="hw">
+  <h2><span class="n">01</span>硬體與資料流</h2>
+  <div class="scroll"><table>
+    <tr><th>連線</th><th>介面</th><th>內容</th><th>現況</th></tr>
+    <tr><td>鏡頭 → Orin</td><td>USB（UVC / V4L2）</td><td>MJPG 640×480，30 fps</td><td><span class="pill p-ok">可用</span> <code>cam_stream.py</code> 已測過</td></tr>
+    <tr><td>Orin ↔ BMduino</td><td>UART <code>/dev/ttyTHS1</code>，115200 8N1</td><td>CMD 往下送、STA 往上回，XOR8 checksum</td><td><span class="pill p-ok">已通過</span> 99/99 封包有效</td></tr>
+    <tr><td>BMduino → PCA9685</td><td>I2C，位址 0x40</td><td>CH0 舵機（50 Hz 脈寬）、CH1~CH4 驅動板 IN1~IN4</td><td><span class="pill p-warn">待確認</span> 舵機還沒測</td></tr>
+    <tr><td>BMduino → 驅動板</td><td>D8、D9 → 74LS14 → ENA、ENB</td><td>PWM 調速</td><td><span class="pill p-bad">有問題</span> 馬達 A 不轉、IN3 無作用</td></tr>
+    <tr><td>編碼器 → BMduino</td><td>D4~D7</td><td>兩顆馬達的 A/B 相</td><td><span class="pill p-warn">未使用</span> 之後做定速控制用</td></tr>
+  </table></div>
+  <h3>每一段花多少時間</h3>
+  <p>從「畫面裡的線歪了」到「輪子開始轉向」，中間每一段都會延遲。延遲越長，車子越容易左右搖擺，所以速度上限主要由這張表決定：</p>
+  <div class="scroll"><table>
+    <tr><th>階段</th><th>預估時間</th><th>說明</th></tr>
+    <tr><td>鏡頭曝光與傳輸</td><td class="num">33–66 ms</td><td>30 fps 時一張約 33 ms，USB 鏡頭內部通常還有 1 張緩衝</td></tr>
+    <tr><td>OpenCV 辨識</td><td class="num">5–15 ms</td><td>320×240 灰階影像，估計值，實測後再更新</td></tr>
+    <tr><td>等待下一次送出</td><td class="num">0–50 ms</td><td>指令固定 20 Hz 送出；之後可以改成辨識完立刻送</td></tr>
+    <tr><td>UART 傳輸</td><td class="num">≈ 2.3 ms</td><td>26 byte × 10 bit ÷ 115200</td></tr>
+    <tr><td>舵機轉到定位</td><td class="num">50–150 ms</td><td>依舵機規格，通常是最慢的一段</td></tr>
+  </table></div>
+  <p>合計大約 0.1 到 0.3 秒。車速每秒 1 公尺時，這段時間車子會往前走 10 到 30 公分，所以控制要「看遠一點」（見第 05 節）。</p>
+</section>
+
+<section id="camera">
+  <h2><span class="n">02</span>鏡頭接收</h2>
+  <h3>做法</h3>
+  <ul>
+    <li>用 OpenCV 的 <code>VideoCapture(0, CAP_V4L2)</code> 開啟 USB 鏡頭，格式設成 <b>MJPG 640×480</b>。這和現有的 <code>cam_stream.py</code> 相同，可以直接沿用。</li>
+    <li><b>獨立執行緒一直讀取，只保留最新的一張</b>，舊的直接丟掉。辨識拿到的永遠是最新畫面，不會因為處理比較慢而越積越多、越來越延遲。</li>
+    <li>每一張影像都記下取得的時間，用來計算延遲和找不到線的時間。</li>
+    <li>辨識前先縮成 <b>320×240</b>。白線很粗，解析度降低不影響判斷，速度卻快很多。</li>
+  </ul>
+  <h3>鏡頭設定（很重要）</h3>
+  <p>自動曝光和自動白平衡會讓同一條白線在不同位置亮度不同，二值化的結果就會跳動。建議用 <code>v4l2-ctl</code> 把它們關掉，改成固定值：</p>
+  <pre class="code">v4l2-ctl -d /dev/video0 --list-ctrls            # 先看這顆鏡頭支援哪些設定
+v4l2-ctl -d /dev/video0 -c auto_exposure=1       # 手動曝光（實際名稱依鏡頭而定）
+v4l2-ctl -d /dev/video0 -c exposure_time_absolute=150</pre>
+  <h3>安裝位置</h3>
+  <ul>
+    <li>鏡頭越高、越往前，看得越遠，但近處會有盲區。建議先讓<b>畫面下緣剛好看到車頭前方 10 到 20 公分</b>。</li>
+    <li>位置和角度一旦固定就<b>不要再動</b>。鳥瞰轉換的校正，以及所有錄下來的測試影片，都和這個位置綁在一起。</li>
+  </ul>
+</section>
+
+<section id="method">
+  <h2><span class="n">03</span>YOLO 和 OpenCV 差在哪</h2>
+  <p>這兩個不是二選一的關係，它們擅長的事情不一樣：</p>
+  <div class="scroll"><table>
+    <tr><th></th><th>傳統 OpenCV</th><th>YOLO 物件偵測</th><th>語意分割（YOLO-seg、U-Net）</th><th>端到端模型</th></tr>
+    <tr><td><b>原理</b></td><td>用規則處理像素：門檻、邊緣、幾何擬合</td><td>神經網路框出「物體」的位置（矩形框）</td><td>神經網路判斷每個像素是不是線</td><td>神經網路直接從畫面輸出轉角</td></tr>
+    <tr><td><b>需要標註資料</b></td><td>不用</td><td>要，通常數百張以上</td><td>要，而且要畫像素等級的遮罩</td><td>要，人工開車錄下大量資料</td></tr>
+    <tr><td><b>在 Orin Nano 上</b></td><td>CPU 就很快，每張幾毫秒</td><td>需要 TensorRT 加速才能即時</td><td>比偵測更吃 GPU</td><td>視模型大小而定</td></tr>
+    <tr><td><b>適合找細長的線嗎</b></td><td>很適合</td><td>不適合，細長斜線用矩形框框不準</td><td>適合</td><td>間接學到</td></tr>
+    <tr><td><b>出錯時好不好查</b></td><td>好查，每一步都能看中間結果</td><td>難，要補資料重新訓練</td><td>難</td><td>非常難</td></tr>
+    <tr><td><b>適合用在</b></td><td>對比強烈的黑底白線</td><td>交通標誌、障礙物、角錐、紅綠燈</td><td>光線複雜、線段斷斷續續的場地</td><td>研究用，不建議當主要方法</td></tr>
+  </table></div>
+  <div class="note key">
+    <p><b>建議：用 OpenCV 找線，YOLO 只在比賽有物件要辨識時才加。</b></p>
+    <p>黑底白線的對比非常強，用門檻就能把線分出來，不需要訓練模型，出錯時也能一步一步看是哪裡錯。如果賽道上還有標誌、障礙物或紅綠燈，再另外加一個 YOLO（例如 YOLOv8n 或 YOLO11n，轉成 TensorRT），讓它<b>和找線並行</b>，結果交給狀態機決定要減速、停車還是避開。</p>
+  </div>
+</section>
+
+<section id="vision">
+  <h2><span class="n">04</span>OpenCV 辨識流程</h2>
+  <p>每一張畫面依序經過下面七步，最後輸出四個數字給控制層。</p>
+  <div class="scroll"><table>
+    <tr><th>步驟</th><th>做什麼</th><th>OpenCV 函式</th><th>要調的參數</th></tr>
+    <tr><td>1. 裁切 ROI</td><td>只保留畫面下半部（路面）</td><td>陣列切片</td><td>保留比例，約 50–60%</td></tr>
+    <tr><td>2. 灰階 + 模糊</td><td>去掉顏色和雜訊</td><td><code>cvtColor</code>、<code>GaussianBlur</code></td><td>模糊核心 5×5</td></tr>
+    <tr><td>3. 二值化</td><td>白線變白、黑底變黑</td><td><code>threshold</code>（Otsu）</td><td>反光嚴重時改用固定門檻或 <code>adaptiveThreshold</code></td></tr>
+    <tr><td>4. 去雜點</td><td>去掉小白點、補小缺口</td><td><code>morphologyEx</code>（開運算）</td><td>核心 3×3</td></tr>
+    <tr><td>5. 鳥瞰轉換</td><td>把透視畫面拉成俯視，兩條線變平行</td><td><code>getPerspectiveTransform</code>、<code>warpPerspective</code></td><td>四個校正點（只做一次）</td></tr>
+    <tr><td>6. 找線</td><td>直方圖找兩條線的起點，再用滑動視窗往上追</td><td><code>numpy</code> 運算</td><td>視窗數 9、寬度、最少像素數</td></tr>
+    <tr><td>7. 擬合</td><td>左右線各擬合成二次曲線 <code>x = ay² + by + c</code></td><td><code>np.polyfit</code></td><td>無</td></tr>
+  </table></div>
+
+  <h3>輸出給控制層的四個值</h3>
+  <div class="scroll"><table>
+    <tr><th>名稱</th><th>意義</th><th>單位</th></tr>
+    <tr><td><code>offset</code></td><td>車子中心偏離道路中線多少，正值代表車子偏右</td><td>公分（由校正得到每像素幾公分）</td></tr>
+    <tr><td><code>heading</code></td><td>車頭方向和道路方向的夾角</td><td>度</td></tr>
+    <tr><td><code>curvature</code></td><td>前方的彎有多急</td><td>1/公尺</td></tr>
+    <tr><td><code>confidence</code></td><td>這一張畫面的結果可不可信：兩條線都有 = 1、只有一條 = 0.5、都沒有 = 0</td><td>0–1</td></tr>
+  </table></div>
+
+  <h3>會出錯的情況，以及怎麼處理</h3>
+  <ul>
+    <li><b>轉彎時只看得到一條線</b>：用已知的道路寬度，從看得到的那條線往旁邊推半個路寬，當作中線。</li>
+    <li><b>反光被誤認成線</b>：檢查兩條線的距離是否接近道路寬度、是否大致平行。不合理就丟掉這一張，沿用上一張的結果。</li>
+    <li><b>結果每張都跳來跳去</b>：對擬合係數做移動平均，讓結果平滑。</li>
+    <li><b>速度優化</b>：上一張已經找到線，下一張就只在那條線附近搜尋，不用每次重新跑滑動視窗。</li>
+  </ul>
+
+  <h3>鳥瞰轉換的校正方式</h3>
+  <ol>
+    <li>車子停在直線賽道正中央，鏡頭裝在最終位置。</li>
+    <li>拍一張照片，在兩條白線上各點兩個點（近處一個、遠處一個），共四點。</li>
+    <li>指定這四點在俯視圖中應該形成一個矩形，存進 <code>config.yaml</code>。</li>
+    <li>同時量好實際的道路寬度和那段距離，就能得到「每像素幾公分」。</li>
+  </ol>
+</section>
+
+<section id="control">
+  <h2><span class="n">05</span>控制：從辨識結果到轉角和速度</h2>
+  <h3>轉向：兩種方法</h3>
+  <div class="scroll"><table>
+    <tr><th></th><th>PD 控制</th><th>Pure Pursuit（建議）</th></tr>
+    <tr><td><b>公式</b></td><td><code>fwa = Kp·offset + Kd·Δoffset/Δt + Kh·heading</code></td><td>在中線上找前方 <code>Ld</code> 公分的目標點，夾角為 α：<br><code>fwa = atan(2·L·sin α / Ld)</code>，L 為前後輪軸距</td></tr>
+    <tr><td><b>要調的參數</b></td><td>Kp、Kd、Kh 三個</td><td>主要只有 <code>Ld</code>（看多遠）</td></tr>
+    <tr><td><b>優點</b></td><td>簡單、好理解</td><td>天生「看遠一點」，能彌補第 01 節的延遲；參數有物理意義</td></tr>
+    <tr><td><b>缺點</b></td><td>參數彼此影響，延遲大時容易搖擺</td><td>需要量軸距，也需要鳥瞰轉換換算出實際距離</td></tr>
+  </table></div>
+  <p><code>Ld</code> 調整原則：太小會左右搖擺，太大過彎會切內線。可以從 1.5 倍車長開始試，速度越快就看越遠。</p>
+
+  <h3>速度規劃</h3>
+  <ul>
+    <li>彎越急、越慢：<code>v = v_max × (1 − k·|curvature|)</code>，並設定最低速度。</li>
+    <li>辨識結果不可信時減速：<code>v = v × confidence</code>。</li>
+    <li><b>後輪差速</b>（選用）：轉彎時內輪比外輪慢，<code>v_內 = v·(1 − W/2R)</code>、<code>v_外 = v·(1 + W/2R)</code>，W 是兩後輪的距離、R 是轉彎半徑。只有一顆馬達出力時可以先不做。</li>
+  </ul>
+
+  <h3>狀態機</h3>
+  <pre class="mermaid">
+stateDiagram-v2
+  state "待命" as idle
+  state "行駛" as run
+  state "找不到線" as lost
+  state "停止" as halt
+  [*] --> idle
+  idle --> run: 按下出發鈕
+  run --> lost: confidence = 0
+  lost --> run: 0.3 秒內重新找到
+  lost --> halt: 超過 0.3 秒
+  run --> halt: 終點線 / 再按一次按鈕
+  halt --> idle: 按下按鈕
+  </pre>
+  <p>「找不到線」的這 0.3 秒內，維持最後一次的轉角並減速，讓車子有機會在彎道重新抓回線。</p>
+</section>
+
+<section id="uart">
+  <h2><span class="n">06</span>下指令給 BMduino</h2>
+  <p>沿用 <code>motor_cmd.py</code> 裡的 <code>BMduinoLink</code>，格式完全依照《UART 通訊協議書》：</p>
+  <pre class="code">&lt;CMD,fwa 12,bwl 35,bwr 40,cs XX&gt;\n
+  fwa  前輪轉角  -90 ~ 90 度（負左正右）
+  bwl  左後輪    -100 ~ 100 %（正前進）
+  bwr  右後輪    -100 ~ 100 %
+  cs   XOR8 checksum，兩位大寫十六進位</pre>
+  <ul>
+    <li><b>獨立的送指令執行緒</b>：每 50 ms 送一次「目前最新」的指令，和辨識花多少時間無關。這樣辨識偶爾變慢時，BMduino 也不會誤判成失聯。</li>
+    <li>送出前先<b>限制範圍</b>，轉角也受機構上限限制（目前設 ±30 度）。</li>
+    <li>同一個執行緒負責讀 STA。超過 0.5 秒沒收到 STA，就讓主程式進入「停止」狀態，並在除錯畫面顯示警告。</li>
+    <li>程式結束、出錯、被 Ctrl+C 中斷時，一律先送 3 次 <code>fwa 0,bwl 0,bwr 0</code> 再關閉序列埠。</li>
+    <li>之後如果要降低延遲，可以把鮑率提高到 460800（協議書有列出這個選項），兩邊都要同時改。</li>
+  </ul>
+</section>
+
+<section id="mcu">
+  <h2><span class="n">07</span>BMduino：把指令變成馬達動作</h2>
+  <p>韌體 <code>bmduino_motor.ino</code> 已經寫好，主迴圈做這幾件事：</p>
+  <ol>
+    <li><b>收封包</b>：以 <code>&lt;</code> 和 <code>&gt;</code> 切出完整封包，驗證 checksum、三個欄位都要有、數值要在範圍內，不合格的整包丟掉。</li>
+    <li><b>舵機</b>：PCA9685 CH0 輸出 50 Hz 脈寬。1500 µs 是正中間，每度約 11 µs，可以用 <code>SERVO_CENTER_US</code> 修正置中。</li>
+    <li><b>馬達</b>：IN 腳決定方向（PCA9685 CH1~CH4），EN 腳用 PWM 決定力道（D8、D9）。換方向前先把 EN 關掉。</li>
+    <li><b>失聯保護</b>：超過 500 ms 沒收到有效 CMD 就讓兩顆馬達停止，舵機維持最後角度。</li>
+    <li><b>回報</b>：每 100 ms 回一次 STA。</li>
+  </ol>
+  <h3>之後要加的：編碼器定速控制</h3>
+  <p>現在 <code>bwl 40</code> 代表「給馬達 40% 的力道」，實際速度會隨電池電量和坡度改變。加上編碼器之後，可以改成「維持最高轉速的 40%」：</p>
+  <ul>
+    <li>用中斷計數 D4~D7 的脈衝，每 10 ms 算一次轉速。</li>
+    <li>用 PI 控制調整 EN 的 PWM，讓實際轉速追上目標轉速。</li>
+    <li>STA 加上兩個欄位回報實際轉速，例如 <code>&lt;STA,S1 -1,vl 38,vr 41,cs XX&gt;</code>。新增欄位前要先和組員約定。</li>
+  </ul>
+  <div class="note warn"><p><b>目前卡住的地方</b>：診斷結果只有 B2 步驟會轉，代表馬達 A 那一路和 IN3 有硬體問題。這個要先解決，第 05 節的控制才有辦法在實車上調整。</p></div>
+</section>
+
+<section id="runtime">
+  <h2><span class="n">08</span>離線執行：不靠電腦、不靠網路</h2>
+  <ul>
+    <li>所有程式都在 Orin 本機上跑，<b>不需要網路</b>。SSH 只在開發時使用。</li>
+    <li>把主程式設成 <b>systemd 服務</b>，Orin 開機就會自動啟動，進入「待命」狀態：
+<pre class="code">[Unit]
+Description=Lane follower
+After=multi-user.target
+
+[Service]
+User=jetson
+WorkingDirectory=/home/jetson/orin_tools/lane
+ExecStart=/usr/bin/python3 main.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target</pre></li>
+    <li><b>實體出發鈕</b>：接一顆按鈕到 BMduino（或 Orin 的 GPIO）。按下就出發，再按一次就停。比賽現場不需要打開電腦。</li>
+    <li><b>紀錄檔</b>：每次行駛時，把每一張畫面的 offset、fwa、速度、confidence 寫進 CSV，跑完後再拿回電腦分析，也可以順便錄下影片。</li>
+  </ul>
+</section>
+
+<section id="safety">
+  <h2><span class="n">09</span>三層安全保護</h2>
+  <div class="scroll"><table>
+    <tr><th>層級</th><th>觸發條件</th><th>動作</th></tr>
+    <tr><td>Orin 辨識層</td><td>超過 0.3 秒找不到線</td><td>狀態機進入「停止」，送出速度 0</td></tr>
+    <tr><td>Orin 通訊層</td><td>超過 0.5 秒沒收到 STA，或程式例外結束</td><td>送出停車指令並停止</td></tr>
+    <tr><td>BMduino</td><td>超過 0.5 秒沒收到有效 CMD（Orin 當機、線鬆脫）</td><td>兩顆馬達停止</td></tr>
+  </table></div>
+  <p>另外建議在電池和驅動板之間加一個<b>實體電源開關</b>，作為最後一道保護。</p>
+</section>
+
+<section id="code">
+  <h2><span class="n">10</span>程式結構</h2>
+  <pre class="code">orin_tools/
+├── lane/
+│   ├── main.py           啟動各執行緒、狀態機、按鈕、紀錄檔
+│   ├── camera.py         取像執行緒，只保留最新一張
+│   ├── vision.py         ROI、二值化、鳥瞰轉換、滑動視窗、擬合
+│   ├── controller.py     Pure Pursuit、速度規劃、差速
+│   ├── link.py           BMduinoLink（從 motor_cmd.py 抽出來）
+│   ├── debug_stream.py   疊加結果後用 MJPEG 串流到瀏覽器
+│   ├── calibrate.py      鳥瞰轉換四點校正
+│   └── config.yaml       所有可調參數
+├── tools/
+│   ├── record.py         推車錄影（給離線開發用）
+│   └── replay.py         讀影片跑辨識，輸出疊加結果影片
+├── motor_cmd.py          手動測試 / 鍵盤遙控
+└── bmduino_motor/        BMduino 韌體</pre>
+  <h3>執行緒分工</h3>
+  <div class="scroll"><table>
+    <tr><th>執行緒</th><th>頻率</th><th>工作</th></tr>
+    <tr><td>取像</td><td class="num">30 Hz</td><td>讀鏡頭，更新「最新一張」</td></tr>
+    <tr><td>主迴圈</td><td class="num">≈ 30 Hz</td><td>辨識 → 控制 → 狀態機 → 更新「最新指令」</td></tr>
+    <tr><td>通訊</td><td class="num">20 Hz</td><td>送最新指令、讀 STA</td></tr>
+    <tr><td>除錯串流</td><td class="num">10 Hz</td><td>只在開發時開啟，比賽時關閉以節省運算</td></tr>
+  </table></div>
+  <p>各執行緒之間只交換「最新值」，用一把鎖保護，不使用佇列，避免資料堆積造成延遲。</p>
+</section>
+
+<section id="plan">
+  <h2><span class="n">11</span>開發順序</h2>
+  <div class="phase"><div class="id">P0</div><div class="body"><h4>修好馬達</h4><p>完成杜邦線直接接驅動板的測試和 PCA9685 通道掃描，找出馬達 A 和 IN3 的問題。</p><p class="exit">完成標準：<code>motor_cmd.py</code> 能讓兩輪正轉、反轉，前輪能左右轉。</p></div></div>
+  <div class="phase"><div class="id">P1</div><div class="body"><h4>固定鏡頭、錄素材</h4><p>把鏡頭裝到最終位置，關掉自動曝光，推著車沿賽道錄影，直道、各種彎道都要錄到。再拍一張校正用的照片。</p><p class="exit">完成標準：有一段完整賽道的影片，以及鳥瞰校正參數。</p></div></div>
+  <div class="phase"><div class="id">P2</div><div class="body"><h4>離線辨識</h4><p>在電腦上用 <code>replay.py</code> 反覆調整 <code>vision.py</code>，直到整段影片都穩定抓到線。這個階段不需要實車。</p><p class="exit">完成標準：confidence 為 0 的畫面低於 2%，疊加的中線不會跳動。</p></div></div>
+  <div class="phase"><div class="id">P3</div><div class="body"><h4>架高測試閉迴路</h4><p>車子架高，用手拿一張印有白線的黑紙在鏡頭前移動，看前輪是否往正確方向轉，同時確認三層安全保護都有作用。</p><p class="exit">完成標準：轉向方向正確；拔掉 UART 線，輪子會在 0.5 秒內停止。</p></div></div>
+  <div class="phase"><div class="id">P4</div><div class="body"><h4>實車低速</h4><p>速度 20% 左右，先跑直線，再跑緩彎，最後跑急彎。主要調整 <code>Ld</code>。</p><p class="exit">完成標準：低速能跑完整圈，不需要人介入。</p></div></div>
+  <div class="phase"><div class="id">P5</div><div class="body"><h4>提高速度</h4><p>加上編碼器定速控制和速度規劃，逐步提高 <code>v_max</code>，並用紀錄檔分析在哪裡偏離最多。</p><p class="exit">完成標準：以目標速度連續跑 5 圈不出界。</p></div></div>
+  <div class="phase"><div class="id">P6</div><div class="body"><h4>比賽準備</h4><p>設定開機自動啟動和實體按鈕，關閉除錯串流，在比賽場地的燈光下重新確認二值化門檻。</p><p class="exit">完成標準：不接任何電腦，從開機到跑完賽道全部能自己完成。</p></div></div>
+</section>
+
+<section id="open">
+  <h2><span class="n">12</span>待決定事項</h2>
+  <ul>
+    <li><b>比賽規則</b>：賽道上有沒有標誌、障礙物、紅綠燈？有的話才需要加 YOLO。</li>
+    <li><b>終點怎麼判斷</b>：是橫向的白線、跑固定圈數，還是由人工按停？</li>
+    <li><b>道路寬度、白線寬度、最小轉彎半徑</b>：要實際量，會寫進 <code>config.yaml</code>。</li>
+    <li><b>車子尺寸</b>：前後輪軸距 L、兩後輪距離 W（Pure Pursuit 和差速會用到）。</li>
+    <li><b>D8、D9 是否支援 PWM</b>：如果不支援，改由 PCA9685 對 IN 腳輸出 PWM 來調速（韌體要改寫）。</li>
+    <li><b>舵機實際可轉的角度</b>：決定 <code>FWA_LIMIT</code>。</li>
+  </ul>
+</section>
+
+<footer>依現有硬體（0803.kicad_sch）、《UART 通訊協議書》以及 2026-10-09 的測試結果整理。表中的時間為預估值，實測後再更新。</footer>
+</div>

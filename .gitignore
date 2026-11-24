@@ -1,0 +1,28 @@
+# 實跑紀錄很大（700 MB），只留 README 和設定檔
+**/logs/20*/
+__pycache__/
+*.pyc
+
+# 部署用的暫存檔（從 git 標籤匯出）
+deploy/
+
+# YOLO 資料集與訓練輸出（從紀錄影片產生，可重建）
+yolo_lane/
+runs/
+
+# 實跑紀錄（影片 + CSV，數 GB），只留 logs/README.md
+orin_tools/logs/run_*
+orin_tools/logs/console_*
+orin_tools/logs/*.log
+
+# 個人 / AI 工作檔，不公開
+CLAUDE.md
+.ollama-dispatch/
+ollama-協作模式.md
+CAR-INTEGRATION.md
+orin_tools/AI交接報告*.md
+
+# 調車過程的備份檔
+orin_tools/drive/*_before_*
+orin_tools/drive/tools/*_before_*
+orin_snapshot/2026-11-24_before_revert_lap56s/

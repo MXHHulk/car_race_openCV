@@ -1,0 +1,199 @@
+# 循跡主程式的所有可調參數。標「要量」的請量實車後填入。
+
+camera:
+  device: 0               # /dev/video0
+  width: 640
+  height: 480
+  fps: 30
+  cv_threads: 0           # OpenCV 用幾個執行緒，0 = 預設；tools/cam_fps.py 的 [4] 比 [3] 快就改成 1
+  # 啟動時用 v4l2-ctl 設定（先 `v4l2-ctl -d /dev/video0 --list-ctrls` 看實際名稱），留空就不設
+  v4l2_ctrls: {}
+  #   auto_exposure: 1
+  #   exposure_time_absolute: 150
+  #   white_balance_automatic: 0
+
+geometry:                 # 鏡頭與車子的幾何，用來把畫面換成公尺
+  cam_height: 0.22        # 要量：鏡頭鏡片離地高度 m
+  hfov: 70.0              # 鏡頭水平視角（度），查規格或量
+  cam_to_rear_axle: 0.12  # 要量：鏡頭在後輪軸前方多少 m（在後輪軸後方就填負值）
+  wheelbase: 0.20         # 「等效軸距」：繞圈測試量迴轉半徑 R，填 R × tan(前輪角度) × 1.07（見 corner.py）
+  track_width: 0.16       # 要量：兩後輪中心距 W（m），差速用
+  lane_width: 0.45        # 要量：兩條白線中心距（m）；只看到一條線時用來推中線
+  car_width: 0.30         # 車寬（m），直角彎走線用來算離線多遠
+
+vision:
+  baseline: ../baseline.json   # lane_view_check.py --save-baseline 產生；提供地平線位置
+  roi_top: null           # null = 用基準檔的設定
+  roi_bottom: null        # 畫面下緣拍到車身時調小，例如 0.85
+  thresh: 0               # 0 = Otsu 自動門檻
+  min_thresh: 60
+  smooth: 0.5             # 中線擬合係數的平滑（0 = 不平滑，越大越穩但越慢）
+  imu_fuse: 0             # 中線和 IMU 融合（0 = 關）：直線雜訊少，但模擬急彎不穩定，先不用
+  # 以下與 lane_view_check.py 相同，通常不用改
+  curve_px: 2.5
+  slope_deg: 3.0
+  min_span: 0.3
+  cutoff_w: 0.2
+  nwin: 14
+  margin: 18
+  minpix: 6
+
+control:
+  lookahead: 0.45         # Pure Pursuit 前視距離 Ld（m），從約 1.5 倍車長開始試；太小會搖、太大會切內線
+  lookahead_per_speed: 0.0  # Ld 隨速度增加：Ld = lookahead + 這個值 × 速度%/100
+  k_ff: 0.0               # 曲率前饋（0 = 關）。2026-10-28 模擬：曲率估計有雜訊會打錯方向，先不要開
+  inner_bias:             # 右彎往內側（右）靠（見 controller.py _inner_bias）：彎道上坡前不要貼著左邊進坡
+    enable: false
+    k: 0.10               # 每 1/m 曲率往右靠多少 m（半徑 1 m 的右彎靠 6 cm）
+    inner_max: 0.06       # 最多往右靠幾 m（車寬 30 cm、路寬 54 cm：中心偏 12 cm 就壓線；模擬裡實際會多偏 4–6 cm）
+    attack_s: 0.3         # 看到右彎後多快靠過去（s）
+    release_s: 1.5           # 彎道結束後多慢回中（s）；直線上不靠，3 s 太慢會在隧道前一直靠右
+    left_from: 0.02       # 靠右超過幾 m 時算還在右彎中
+    left_max: 15          # 右彎中往左最多修幾度（修太大車頭會偏左，打右到底也救不回來）
+    left_off_s: 15.0      # 坡頂路口動作做完後幾秒內不限制（下坡到底要往左打）
+  k_i: 0.0                # 偏移積分（度 / (m·s)）：彎道持續偏外側時逐漸多轉。0 = 關，建議 40–80
+  i_leak_s: 3.0           # 積分衰減時間（s），出彎後多轉的量會在這段時間內慢慢消失
+  i_max: 15               # 積分最多加多少度
+  fwa_limit: 30           # 前輪轉角上限（度）。韌體放寬後最多約 -68 ~ +48 度（超過 ±33 可能頂到機構）
+  fwa_trim: 2.7           # 前輪置中修正（度）：直線上前輪平均 +2.7° 才走直（舵機中心偏了），補上後積分不用一直來回補
+  v_max: 30               # 最高速度 %（先低速）
+  v_min: 15               # 最低速度 %（低於這個馬達可能不轉）
+  k_curv: 0.25            # 彎越急越慢：v = v_max × (1 - k_curv × |曲率 1/m|)
+  uphill_boost: 8         # 前方上坡時加多少 %
+  downhill_factor: 0.6    # 前方下坡 / 坡頂時速度乘上這個值
+  slope_memory: 3.0       # 坡頂 / 坡底判斷的時間窗（s），見 controller.py
+  accel_per_s: 80         # 每秒最多加速多少 %（出彎要快一點加回來）
+  differential: false     # 後輪差速：轉彎時內側輪慢、外側輪快，幫忙轉急彎
+  diff_gain: 1.0          # 差速強度：1 = 打到底時外側 2 倍、內側停；> 1 內側反轉。用 motor_cmd.py --teleop 的 Z/X 試
+  diff_from: 25           # 前輪超過幾度才開始用差速（直線上的小修正不用，避免越晃越大）
+  speed_profile:          # 依前輪角度決定速度（見 controller.py _profile_speed），開了就不用 v_max、k_curv、坡度判斷
+    enable: true
+    v_straight: 70         # 75 時衝進右彎開到外側線上（203057）；80 時模擬直角彎看不到線
+    v_curve: 45
+    fwa_low: 8
+    fwa_high: 24
+    attack_s: 0.1
+    release_s: 0.35       # 前輪回正後多快恢復速度（s）
+    down_v: 30
+    down_s: 14
+    down_ld: 0.15
+    straight_ld: 0.12
+    yaw_damp: 0.3        # 直線上陀螺儀阻尼：車頭每 °/s 轉速，前輪反向修幾度（0 = 關，需要 IMU）
+    lat_load: 2400       # 彎道側向負載上限（速度% × 車頭轉速°/s）：彎越緩越快，0 = 舊算法（前輪 fwa_low~fwa_high 線性）
+    yaw_gain: 1.5        # 車頭轉速 ≈ 這個 × 速度% × tan(前輪)（實車擬合）
+    v_cmax: 65           # 彎道裡最快幾 %（隧道前緩彎 56–63% 會撞柱子）
+    blend_deg: 4         # 前輪超過 fwa_low 後幾度內從直線速度過渡到彎道速度
+    entry_s: 0.6         # 剛從直線打出去幾秒內照舊算法減速（進彎）；彎中修正不算
+    entry_high: 18       # 進彎時前輪到這個角度就降到 v_curve（比 fwa_high 早）
+    sat_deg: 38          # 前輪超過這個角度（快打到底、轉向到極限）就降到 v_sat
+    v_sat: 38
+    preview_ld: 0      # 預看多遠（m）：看前方的彎提早減速，0 = 不預看（鏡頭約看到 1.1 m）
+    preview_release_s: 0.4  # 前方的彎變緩時，預看角度多慢放鬆（s）
+    preview_k: 0.65      # 預看曲率換成前輪角：前輪 ≈ atan(這個 × 曲率)，0 = 不用曲率（0.5 快、0.87 最保守）
+    curve_tau: 0.5       # 彎道裡前輪角度平滑幾秒（代表整個彎的彎度，彎中速度不跟著修正上下）
+    lat_over: 1.3        # 實際轉速算出的負載超過 lat_load 這麼多倍就照實際限速
+  stall:                  # 卡住偵測（見 stall.py）：行駛中畫面不動就加速、關差速
+    quick_fwa: 36
+    quick_m: 1.6
+    quick_boost: 15
+    total_max: 50
+    early_fwa: 40
+    early_m: 4.0
+    ramp_pitch: 9         # IMU 俯仰角超過幾度、車子一變慢就加速（不用等前輪打大），0 = 不用
+    enable: true
+    boost_per_s: 25       # 卡住時每秒加多少速度 %
+    boost_max: 45         # 最多加多少 %
+    release: 1.4          # 畫面變化超過這個（恢復正常速度）才退掉加速；有在動但很慢時維持加速
+    release_s: 1.0        # 要連續這麼久都超過 release 才開始退（衝過突起那一下不算）
+    drop_per_s: 15        # 退加速時每秒退多少 %
+    floor_ratio: 0.7      # 推動後保底：卡住時加到的最大值 × 這個比例
+    floor_s: 3.0          # 保底維持幾秒（從最後一次卡住算起）；太長的話衝上坡頂會太快
+  hilltop:                # 爬坡 / 坡頂平台（見 hilltop.py）：只沿左線走（不理右邊虛線 / 膠帶 / U 形框），正常在動時限速
+    enable: false
+    arm_boost: 10         # 卡住加速超過這個 % 就進入爬坡模式（出發起步約 3–5；平地跑快後坡道入口只加到 17）
+    time_s: 7.0           # 卡住加速完全退掉後幾秒回到一般循線（要夠走完坡頂平台）
+    v_max: 50             # 跑快時總速度上限 %（含卡住加速；32 會在坡頂轉折失去衝力卡住）
+    start_ignore_s: 3.0   # 出發後幾秒內的卡住不算爬坡（起步一定會先卡一下）
+    rearm_s: 20.0         # 爬坡模式結束後幾秒內不再啟動（下坡到底也會卡一下；一圈約 110 s）
+    ramp_v: 66            # 坡上（俯仰角 > arm_pitch）的速度 %，0 = 照 v_min / v_max
+    top_v: 46             # 過了坡頂到路口的速度 %（平台上），0 = 照 v_min / v_max
+    arm_pitch: 9          # IMU 俯仰角（上坡正）超過幾度才進爬坡模式，0 = 不看。平地最多 +5.8°、上坡 +13.5° 以上
+    junction:             # 坡頂 T 字路口（見 hilltop.py Junction）：前輪打左一下就固定左轉 → 直走 → 回循線
+      enable: false
+      detect_fwa: -99     # 爬坡中（或結束 window_s 秒內）前輪打左超過這個、連續 detect_s 秒 = 路口
+      detect_s: 0.1       # 坡頂打左可能只有 0.17 s（run_20261030_201818），0.2 會錯過
+      window_s: 3.0
+      free_s: 4.5         # 卡住加速退掉多久之後才接受（實測到坡頂都在 8.2–9.2 s；坡道中間修正打左不算）
+      ramp_fwa: 18        # 坡道直線段前輪上限（度；正常最多 15.5°），防隆起處位置估錯打到底
+      ramp_k: 0.3
+      ramp_xr: 500
+      ramp_px: 0.25
+      ramp_guard: 30
+      post_fwa: 12
+      post_s: 6.0
+      post_lmax: 4
+      force_s: 9.8
+      top_pitch: 9        # 有 IMU 時從坡頂（俯仰角掉到一半以下）開始算路口時間，0 = 用加速退掉的時間
+      top_free_s: 1.5     # 坡頂後幾秒開始找虛線（坡頂後最早 2.4 s 看到虛線）
+      top_force_s: 5.0    # 坡頂後幾秒還沒看到虛線就直接左轉
+      dash_near: 285
+      dash_wait: 0.45
+      turn_fwa: -40       # 左轉時前輪角度
+      turn_s: 0.95         # 左轉幾秒（轉不夠就加長）
+      turn_yaw: 66
+      turn_max_s: 2.0
+      hold_yaw: 96
+      hold_left: 6
+      dash_y: -0.32       # 直走時虛線保持在車子右邊幾 m：成功下坡的圈直走結束 −0.25 ~ −0.30，車子變慢時要多留
+      dash_k: 35          # 虛線每差 1 m，車頭目標多偏幾度
+      dash_yaw_max: 12    # 車頭目標最多多偏幾度
+      hold_d: 0.15        # 直走、對準時車頭轉速阻尼（每 °/s 前輪反向修幾度），防止轉過頭
+      dash_left: 12       # 看虛線修正時往左最多打幾度
+      straight_tol: 0.03  # 直走時間到但虛線還沒到 dash_y + 這個值就多走
+      straight_s: 3.0     # 直走幾秒（還沒到下坡就加長）
+      bend_fwa: 36
+      bend_yaw: 30
+      bend_from: 5.0
+      bend_to: 6.8
+      align: true
+      down_yaw: 74        # 已經下坡後的車頭目標（下坡略往右偏），只往右修：成功的圈下坡時從 83–86° 到 73–75°
+      down_fwa: 5         # 下坡上往右最多修幾度（8 時 195216 從 84° 轉到 70°、偏右 39 cm）
+      align_yaw: 84       # 對準下坡的車頭角（陀螺儀）：成功下坡的圈下坡開始時 83–86°；80° 偏右跑出去（194103）
+      align_v: 35         # 對準下坡的速度 %：太慢底盤會卡在坡口打滑，40 下坡偏右
+      down_sv: 30         # 已經下坡後的速度 %（成功的圈都是 30）
+      speed: 35           # 路口動作的速度 %
+      lap_s: 60.0         # 做完後至少隔這麼久又開始爬坡才算下一圈（一圈約 110 s）
+    fast_motion: 4.0      # 畫面變化超過這個才算跑快（坡頂衝出去時 5–15、坡道 40–50% 在爬 2–3.4）
+    v_min: 50             # 爬坡模式最低速度 %（坡道上 24–29% 會停住）
+  corner:                 # 直角彎「外內外」走線（見 corner.py）
+    enable: false
+    out_offset: 0.10      # 入彎前往外側靠多少 m（車寬 30 cm、路寬 54 cm 時最多約 0.12）
+    trigger: 0.30         # 內角剩多遠（m，從後輪軸算）開始轉
+    v_default: 0.4        # 估不出車速時用的值（m/s）
+    wheelbase: 1.26       # 等效軸距（tools/turn_test.py 量到的 × 1.07）；不填就用 geometry.wheelbase
+
+imu:                      # GY-521（MPU-6050），見 imu.py；Orin 第 27/28 腳 = /dev/i2c-1
+  enable: true
+  bus: 1
+  addr: 0x68
+  forward: "+x"          # IMU 哪一軸朝車頭（車頭抬起時這軸的加速度變大）
+
+safety:
+  lost_timeout: 0.3       # 找不到線超過幾秒就停車
+  down_lost_s: 1.0
+  lost_grace_s: 0.15      # 看不到線這麼久以內先不減速（常常只丟 1 張）
+  stuck_stop_s: 3.0       # 平地上卡住（畫面不動）超過幾秒就停車，保護舵機和馬達
+  lost_speed_factor: 0.5  # 找不到線期間速度乘上這個值，維持最後轉角
+  sta_timeout: 0.5        # 超過幾秒沒收到 STA 就停車
+  idle_steer: true        # 待命時前輪也跟著辨識結果轉（架高測試用），速度維持 0
+
+link:
+  port: /dev/ttyTHS1
+  baud: 115200
+  hz: 20
+
+debug:
+  stream: true            # 瀏覽器看除錯畫面 http://<orin-ip>:8080，比賽時關掉
+  port: 8080
+  stream_hz: 10
+  log_dir: ../logs        # 每次執行寫一個 CSV

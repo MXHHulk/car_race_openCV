@@ -1,0 +1,11 @@
+{
+  "horizon": 8.27,
+  "center": 175.93,
+  "w": 320,
+  "h": 240,
+  "cam_height": 0.1617,
+  "lane_width_at_h0": 0.501,
+  "frames": 60,
+  "spread_horizon": 0.08,
+  "created": "2026-11-18 15:19:15"
+}

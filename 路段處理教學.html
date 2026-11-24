@@ -1,0 +1,639 @@
+<title>循跡車路段處理教學</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* 版面：左側固定目錄 + 右側內文，像一本賽車工程手冊。每個路段一章，章內固定三欄：辨識 → 動作 → 問題與改善 */
+:root {
+  --bg: #f3f4f1;
+  --panel: #ffffff;
+  --ink: #1d2328;
+  --muted: #5d6870;
+  --rule: #d5d9d6;
+  --track: #2c3338;
+  --accent: #d9661f;
+  --ok: #2f7d4f;
+  --warn: #b2401f;
+  --code-bg: #eceee9;
+  --cv: #2f6f9f;
+  --imu: #8a4fb0;
+  --s-flat: #5e7f96;
+  --s-curve: #8a6bb0;
+  --s-fork: #9a7b2c;
+  --s-up: #c0533a;
+  --s-dash: #d9661f;
+  --s-down: #2f7d6a;
+  --s-lost: #6d6d6d;
+  --on-tag: #ffffff;
+  --f-display: "IBM Plex Sans Condensed", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  --f-body: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", sans-serif;
+  --f-mono: "JetBrains Mono", Consolas, "Courier New", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #171b1e; --panel: #20262a; --ink: #e4e7e3; --muted: #9aa5ab; --rule: #343c41;
+    --track: #3a444a; --accent: #f08a45; --ok: #6cc08f; --warn: #f07a5a; --code-bg: #2a3135;
+    --cv: #6fa8d6; --imu: #b98ad8;
+    --s-flat: #4f7189; --s-curve: #7a5ea3; --s-fork: #8a6d22; --s-up: #a8462f; --s-dash: #b9561a; --s-down: #2a6d5d; --s-lost: #5c5c5c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #171b1e; --panel: #20262a; --ink: #e4e7e3; --muted: #9aa5ab; --rule: #343c41;
+  --track: #3a444a; --accent: #f08a45; --ok: #6cc08f; --warn: #f07a5a; --code-bg: #2a3135;
+  --cv: #6fa8d6; --imu: #b98ad8;
+  --s-flat: #4f7189; --s-curve: #7a5ea3; --s-fork: #8a6d22; --s-up: #a8462f; --s-dash: #b9561a; --s-down: #2a6d5d; --s-lost: #5c5c5c;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15.5px; line-height: 1.75; }
+.wrap { max-width: 1200px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 40px 80px; display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 48px; }
+nav { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; font-size: 14px; }
+nav .lbl { font-family: var(--f-display); text-transform: uppercase; letter-spacing: .12em; font-size: 12px; color: var(--muted); margin: 14px 0 6px; }
+nav .lbl:first-child { margin-top: 0; }
+nav ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+nav a { display: flex; align-items: center; gap: 10px; padding: 4px 8px; border-radius: 6px; color: var(--ink); text-decoration: none; }
+nav a:hover, nav a:focus-visible { background: var(--code-bg); outline: none; }
+nav i { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+main { min-width: 0; }
+header.top { display: grid; gap: 14px; margin-bottom: 36px; }
+.eyebrow { font-family: var(--f-display); font-weight: 600; text-transform: uppercase; letter-spacing: .14em; font-size: 12.5px; color: var(--accent); }
+h1 { font-family: var(--f-body); font-weight: 700; font-size: clamp(28px, 4.4vw, 42px); line-height: 1.2; margin: 0; text-wrap: balance; }
+.lead { max-width: 66ch; color: var(--muted); margin: 0; font-size: 16.5px; }
+h2 { font-size: 24px; line-height: 1.3; margin: 0; text-wrap: balance; }
+h3 { font-size: 15.5px; margin: 0 0 6px; }
+p { margin: 0; max-width: 70ch; }
+code { font-family: var(--f-mono); font-size: .86em; background: var(--code-bg); padding: 1px 6px; border-radius: 4px; }
+section.ch { scroll-margin-top: 24px; border-top: 1px solid var(--rule); padding-block: 36px; display: grid; gap: 18px; }
+.ch-head { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: center; }
+.tag { font-family: var(--f-display); font-weight: 700; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--on-tag); padding: 4px 10px; border-radius: 4px; white-space: nowrap; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13.5px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.src { display: inline-block; font-family: var(--f-display); font-weight: 700; font-size: 11px; letter-spacing: .08em; padding: 0 6px; border-radius: 3px; border: 1px solid currentColor; line-height: 1.6; vertical-align: 1px; margin-right: 4px; }
+.src.cv { color: var(--cv); }
+.src.imu { color: var(--imu); }
+.src.ctl { color: var(--muted); }
+.stage { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+.stage > div { padding: 16px 18px; min-width: 0; border-left: 1px solid var(--rule); }
+.stage > div:first-child { border-left: none; }
+.stage h3 { font-family: var(--f-display); text-transform: uppercase; letter-spacing: .08em; font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.stage h3 b { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--ink); color: var(--bg); font-size: 11.5px; }
+.stage ul { margin: 0; padding-left: 1.1em; display: grid; gap: 7px; font-size: 14.5px; }
+.fixes { display: grid; gap: 10px; }
+.fix { display: grid; grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1fr); gap: 0; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; font-size: 14.5px; }
+.fix > div { padding: 10px 14px; min-width: 0; }
+.fix .p { border-left: 3px solid var(--warn); }
+.fix .p small, .fix .s small { display: block; font-family: var(--f-display); font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.fix .arrow { display: grid; place-items: center; color: var(--muted); padding: 0; background: var(--code-bg); font-size: 14px; }
+.fix .s { border-right: 3px solid var(--ok); }
+.run { font-family: var(--f-mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
+.formula { font-family: var(--f-mono); background: var(--code-bg); padding: 10px 14px; border-radius: 6px; overflow-x: auto; white-space: pre; font-size: 13px; line-height: 1.7; }
+.flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.flow div { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 8px 12px; font-size: 14px; min-width: 0; }
+.flow div b { display: block; font-family: var(--f-display); font-size: 12px; letter-spacing: .06em; color: var(--muted); }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.box { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 16px 18px; min-width: 0; display: grid; gap: 10px; align-content: start; }
+.box ul { margin: 0; padding-left: 1.1em; display: grid; gap: 6px; font-size: 14.5px; }
+.why { border-left: 3px solid var(--warn); background: var(--panel); padding: 12px 16px; border-radius: 0 8px 8px 0; font-size: 14.5px; }
+.why b { color: var(--warn); }
+.tbl { overflow-x: auto; border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-family: var(--f-display); text-transform: uppercase; letter-spacing: .06em; font-size: 12px; color: var(--muted); font-weight: 600; background: var(--code-bg); }
+tr:last-child td { border-bottom: none; }
+td.k { font-family: var(--f-mono); font-size: 13px; }
+td.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.diag { overflow-x: auto; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 14px; }
+.diag svg { display: block; min-width: 720px; width: 100%; height: auto; }
+.diag svg text { font-family: var(--f-body); fill: var(--ink); }
+.diag svg .m { fill: var(--muted); font-size: 11px; }
+.diag svg .w { fill: var(--on-tag); }
+.note { font-size: 13.5px; color: var(--muted); }
+@media (max-width: 900px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); gap: 20px; padding-block: 24px 60px; }
+  nav { position: static; }
+  nav ol { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+  .stage { grid-template-columns: minmax(0, 1fr); }
+  .stage > div { border-left: none; border-top: 1px solid var(--rule); }
+  .stage > div:first-child { border-top: none; }
+  .fix { grid-template-columns: minmax(0, 1fr); }
+  .fix .arrow { padding: 2px; }
+  .fix .arrow span { display: inline-block; transform: rotate(90deg); }
+  .fix .s { border-right: none; border-left: 3px solid var(--ok); }
+}
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.step { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 16px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.step p { font-size: 14.5px; }
+.pic svg { display: block; width: 100%; max-width: 220px; height: auto; }
+.stage p.t { font-size: 14.5px; }
+.stage p.t + p.t { margin-top: 8px; }
+h3.sub { font-size: 16px; margin: 4px 0 -6px; }
+.cfg { display: block; margin-top: 4px; font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+</style>
+
+<div class="wrap">
+<nav aria-label="目錄">
+  <div class="lbl">車子怎麼看路</div>
+  <ol>
+    <li><a href="#cv"><i style="background:var(--cv)"></i>鏡頭：找白線</a></li>
+    <li><a href="#imu"><i style="background:var(--imu)"></i>IMU：感覺傾斜和轉向</a></li>
+    <li><a href="#map"><i style="background:var(--track)"></i>一張表看懂</a></li>
+  </ol>
+  <div class="lbl">路段</div>
+  <ol>
+    <li><a href="#flat"><i style="background:var(--s-flat)"></i>直線</a></li>
+    <li><a href="#curve"><i style="background:var(--s-curve)"></i>彎道</a></li>
+    <li><a href="#fork"><i style="background:var(--s-fork)"></i>岔路</a></li>
+    <li><a href="#tunnel"><i style="background:var(--s-lost)"></i>隧道</a></li>
+    <li><a href="#up"><i style="background:var(--s-up)"></i>上坡</a></li>
+    <li><a href="#dash"><i style="background:var(--s-dash)"></i>虛線轉彎</a></li>
+    <li><a href="#down"><i style="background:var(--s-down)"></i>下坡</a></li>
+  </ol>
+  <div class="lbl">其他</div>
+  <ol>
+    <li><a href="#start"><i style="background:var(--ok)"></i>比賽起跑</a></li>
+    <li><a href="#lap"><i style="background:var(--accent)"></i>實際跑一次</a></li>
+    <li><a href="#lessons"><i style="background:var(--muted)"></i>學到的事</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="top">
+  <div class="eyebrow">循跡車 · 白話說明</div>
+  <h1>車子怎麼認出每段路，認出來之後做什麼</h1>
+  <p class="lead">車子有兩種「感官」：<b>鏡頭</b>像眼睛，負責看地上的白線；<b>IMU</b> 像人的內耳，感覺得到車身前後傾斜、車頭轉了幾度。這頁用白話說明車子靠這兩樣東西怎麼知道自己在直線、彎道、坡道還是路口，知道之後怎麼開，以及這樣開遇到過什麼問題、後來怎麼改。</p>
+  <div class="legend">
+    <span><span class="src cv">眼睛</span>靠鏡頭看</span>
+    <span><span class="src imu">內耳</span>靠 IMU 感覺</span>
+    <span><span class="src ctl">手感</span>看方向盤打多少</span>
+  </div>
+  <p class="note">每個改善後面的灰色小字是設定檔裡的名稱，要調整時找它就對了。</p>
+  <p class="note">本頁數字對應目前車上的版本：<b>race-v82-2laps</b>（2026-11-06 19:25 存檔，run_20261106_192543 從比賽起點連續跑兩圈，隧道到隧道 87.5 秒）。還原指令在 <code>orin_snapshot/2026-11-06_race_v82_2laps/README.md</code>。</p>
+</header>
+
+<!-- ============ 鏡頭 ============ -->
+<section class="ch" id="cv">
+  <div class="ch-head"><span class="tag" style="background:var(--cv)">眼睛</span><h2>鏡頭怎麼找到白線</h2></div>
+  <p>鏡頭拍到的畫面先變成只有黑、白兩色：白線是白的，地板是黑的。接著電腦要回答兩件事：<b>哪些白點是左線、哪些是右線？</b>和<b>這兩條線是直的還是彎的？</b>做法分四步。</p>
+  <div class="steps">
+    <div class="step">
+      <div class="pic" aria-hidden="true">
+        <svg viewBox="0 0 160 100"><rect x="0" y="0" width="160" height="100" fill="var(--track)" rx="4"/><path d="M40 100 Q52 50 70 10" stroke="#fff" stroke-width="5" fill="none"/><path d="M125 100 Q118 50 100 10" stroke="#fff" stroke-width="5" fill="none"/><rect x="0" y="80" width="160" height="20" fill="var(--accent)" opacity=".35"/><path d="M38 80 v-12 M125 80 v-12" stroke="var(--accent)" stroke-width="2"/></svg>
+      </div>
+      <h3>1. 先看腳邊</h3>
+      <p>像人走路先低頭看腳前面：電腦先看畫面<b>最下面一小條</b>，一直排一直排數白點。白點特別多的兩個地方，就是左線和右線的起點。腳邊看不到線，就往上一點、看遠一點再找。</p>
+    </div>
+    <div class="step">
+      <div class="pic" aria-hidden="true">
+        <svg viewBox="0 0 160 100"><rect x="0" y="0" width="160" height="100" fill="var(--track)" rx="4"/><path d="M40 100 Q52 50 70 10" stroke="#fff" stroke-width="5" fill="none"/><g fill="none" stroke="var(--accent)" stroke-width="2"><rect x="30" y="80" width="20" height="14"/><rect x="34" y="64" width="20" height="14"/><rect x="39" y="48" width="20" height="14"/><rect x="45" y="32" width="20" height="14"/><rect x="52" y="16" width="20" height="14"/></g></svg>
+      </div>
+      <h3>2. 拿手電筒往前照</h3>
+      <p>從起點開始，用一個小方框（像手電筒的光）照著白線，一格一格往前移。遇到彎道就<b>順著線彎的方向</b>把方框偏過去。連照兩格都沒看到線，就當這條線到頭了。照過的地方會做記號，左線的點不會被算進右線。</p>
+    </div>
+    <div class="step">
+      <div class="pic" aria-hidden="true">
+        <svg viewBox="0 0 160 100"><rect x="0" y="0" width="160" height="100" fill="var(--track)" rx="4"/><g fill="#fff"><circle cx="40" cy="92" r="2.5"/><circle cx="43" cy="80" r="2.5"/><circle cx="45" cy="70" r="2.5"/><circle cx="50" cy="58" r="2.5"/><circle cx="53" cy="46" r="2.5"/><circle cx="58" cy="35" r="2.5"/><circle cx="62" cy="24" r="2.5"/><circle cx="68" cy="12" r="2.5"/></g><path d="M40 98 Q50 50 70 6" stroke="var(--accent)" stroke-width="2.5" fill="none"/></svg>
+      </div>
+      <h3>3. 用軟尺描出形狀</h3>
+      <p>追完的線其實是一堆零散的白點。電腦用一條平滑的曲線，<b>像軟尺一樣貼著這堆點擺好</b>。軟尺是直的就是直線；中間鼓出去就是彎道，鼓越多彎越急，往左鼓是左彎、往右鼓是右彎。</p>
+    </div>
+    <div class="step">
+      <div class="pic" aria-hidden="true">
+        <svg viewBox="0 0 160 100"><rect x="0" y="0" width="160" height="100" fill="var(--track)" rx="4"/><path d="M40 100 Q52 50 70 10" stroke="#fff" stroke-width="5" fill="none"/><path d="M125 100 Q118 50 100 10" stroke="#fff" stroke-width="5" fill="none"/><path d="M82 100 Q85 50 85 10" stroke="var(--accent)" stroke-width="2.5" stroke-dasharray="6 5" fill="none"/><rect x="72" y="82" width="16" height="14" fill="var(--accent)" rx="2"/></svg>
+      </div>
+      <h3>4. 走兩條線的正中間</h3>
+      <p>把畫面上的位置換算成真實距離（例如「左線在左邊 25 公分」），兩條線的正中間就是要走的路。只看到一條線時，從那條線往內推半個路寬（27 公分）。最後得到三個答案：<b>車子偏了多少、車頭歪了多少、前面的路彎不彎</b>。</p>
+    </div>
+  </div>
+  <div class="two">
+    <div class="box">
+      <h3>為了特定路段，鏡頭還會另外看</h3>
+      <ul>
+        <li><b>虛線方塊</b>：畫面中間有沒有「扁扁的、白色的小方塊」。車道線又長又斜，不會被當成方塊。</li>
+        <li><b>右線離多近</b>：畫面某一列上，右線在第幾個位置。用來防止爬坡時貼上右邊。</li>
+        <li><b>畫面有沒有在動</b>：這張和上一張差多少。車子在跑時畫面一直變，卡住時畫面幾乎不動。</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>眼睛的盲點</h3>
+      <p>鏡頭只看得出「前面的路比車子現在的位置陡還是緩」，看不出真正的坡度。爬到快坡頂時，前面的平台會被看成下坡；下坡到底時，前面的平地會被看成上坡。所以坡道的事後來都交給 IMU。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ IMU ============ -->
+<section class="ch" id="imu">
+  <div class="ch-head"><span class="tag" style="background:var(--imu)">內耳</span><h2>IMU 感覺到什麼</h2></div>
+  <p>IMU 是一顆小晶片，裡面有感覺重力的零件和感覺旋轉的零件。開機時車子要停在平地上不動 1 秒，讓它記住「哪邊是下面」、「不轉的時候讀數是多少」。</p>
+  <div class="two">
+    <div class="box">
+      <h3><span class="src imu">內耳</span>車頭抬多高（俯仰角）</h3>
+      <p>車頭抬起來是正的，往下栽是負的。實際量到：</p>
+      <div class="tbl"><table>
+        <tr><th>在哪裡</th><th>大概幾度</th></tr>
+        <tr><td>平地（有顛簸）</td><td class="num">−2° ~ +6°</td></tr>
+        <tr><td>上坡</td><td class="num">+13° ~ +17°</td></tr>
+        <tr><td>下坡</td><td class="num">−15° ~ −19°</td></tr>
+      </table></div>
+      <p>所以「超過 +9° 就是在爬坡」、「低於 −9° 就是在下坡」，非常好分。</p>
+    </div>
+    <div class="box">
+      <h3><span class="src imu">內耳</span>車頭轉了幾度、轉多快</h3>
+      <p>把每一瞬間的旋轉加起來，就知道車頭總共轉了幾度。路口「左轉 58 度就回正」、「對準 76 度再下坡」、隧道和進坡前的直線在哪裡，都是靠它量。</p>
+      <p class="note">以前用畫面估車頭轉了幾度，誤差 5–7 度，路口常對不準，改用 IMU 後才穩定。</p>
+    </div>
+  </div>
+  <div class="why"><b>注意：沒開 IMU 程式不會提醒你。</b>設定檔裡少了 <code>imu: enable: true</code> 這段，車子照樣會跑，只是坡道和路口變成「用時間猜」，很容易失敗。2026-11-04 晚上好幾趟跑不完一圈就是這個原因。出發前要看到「IMU 校正中，車子不要動」這行字。</div>
+</section>
+
+<!-- ============ 總表 ============ -->
+<section class="ch" id="map">
+  <div class="ch-head"><span class="tag" style="background:var(--track)">總表</span><h2>一張表看懂</h2></div>
+  <div class="tbl"><table>
+    <tr><th>路段</th><th>怎麼知道到了</th><th>知道後怎麼開</th></tr>
+    <tr><td><b>出發</b></td><td>按 <code>r</code> 等綠燈，或手動出發</td><td>前 3 秒最多 50%，避免一出發就衝進彎道</td></tr>
+    <tr><td><b>直線</b></td><td><span class="src ctl">手感</span>方向盤幾乎沒在轉</td><td>開快（82%），眼睛看遠一點，車頭一歪就輕輕修回</td></tr>
+    <tr><td><b>彎道</b></td><td><span class="src ctl">手感</span>方向盤打很大</td><td>馬上放慢（40%，打到底 34%），外側輪轉快一點幫忙轉，右彎稍微靠內</td></tr>
+    <tr><td><b>岔路</b></td><td><span class="src cv">眼睛</span>兩條線靠太近、或有一條線斜斜地叉過來</td><td>不理會叉出來的那條，照原本的路走</td></tr>
+    <tr><td><b>隧道</b></td><td><span class="src imu">內耳</span>車頭轉到「隧道方向」，<span class="src cv">眼睛</span>畫面突然變暗</td><td>前面直線 50%、往左靠 13 公分；暗了 36%；出隧道 5.5 秒內最多 45%</td></tr>
+    <tr><td><b>進坡前</b></td><td><span class="src imu">內耳</span>車頭 = 隧道方向 −200°</td><td>短直線最多 42%，接著的右彎打到底 34%</td></tr>
+    <tr><td><b>上坡</b></td><td><span class="src imu">內耳</span>車頭抬超過 9° 連續 8 張，<span class="src cv">眼睛</span>畫面變慢或不動</td><td>62% 衝上去，鎖住車頭方向，太靠右就往左修</td></tr>
+    <tr><td><b>坡頂</b></td><td><span class="src imu">內耳</span>車頭從抬高變回快要水平</td><td>放慢（42%），準備找虛線</td></tr>
+    <tr><td><b>虛線轉彎</b></td><td><span class="src cv">眼睛</span>看到白色小方塊</td><td>照固定動作：左轉到 58° 回正（會再滑約 20°），再直走 3 秒</td></tr>
+    <tr><td><b>下坡</b></td><td><span class="src imu">內耳</span>車頭往下栽超過 9°，再回到快要水平</td><td>先對準 76°、坡上依速度反打 / 滑行 / 推，落地後右轉</td></tr>
+  </table></div>
+</section>
+
+<!-- ============ 直線 ============ -->
+<section class="ch" id="flat">
+  <div class="ch-head"><span class="tag" style="background:var(--s-flat)">直線</span><h2>直線：開快，但不要左右晃</h2></div>
+  <div class="stage">
+    <div>
+      <h3><b>1</b>怎麼知道是直線</h3>
+      <p class="t"><span class="src ctl">手感</span>不靠眼睛判斷，而是看<b>方向盤現在打多少</b>。方向盤幾乎沒在轉（8 度以內）就是直線，打很大（超過 24 度）就是彎道，中間就「有點彎」。</p>
+      <p class="t note">為什麼不用眼睛？畫面上的白線常常抖動，看起來一下直一下彎；方向盤的角度穩定得多。</p>
+    </div>
+    <div>
+      <h3><b>2</b>認出來後怎麼開</h3>
+      <ul>
+        <li>油門加到 82%，但慢慢加（每秒最多加 60%），不暴衝。</li>
+        <li>出發後 3 秒內最多 50%：起點附近馬上接右彎。</li>
+        <li>眼睛看遠一點，修方向時比較溫和。</li>
+        <li><span class="src imu">內耳</span>一感覺車頭開始歪，就先輕輕往反方向修。</li>
+        <li>兩個後輪同速，不用差速。</li>
+      </ul>
+    </div>
+    <div>
+      <h3><b>3</b>白話比喻</h3>
+      <p class="t">像開車上高速公路：眼睛看遠方、方向盤輕輕扶著。只盯著車頭前面看，會一直猛修方向盤，車子就左右晃。</p>
+    </div>
+  </div>
+  <h3 class="sub">遇到的問題和改法</h3>
+  <div class="fixes">
+    <div class="fix"><div class="p"><small>問題</small>以前看畫面決定速度，畫面一抖就減速，直線平均只跑 32%。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>改成看方向盤打多少決定速度，直線就能穩穩跑到設定速度。</div></div>
+    <div class="fix"><div class="p"><small>問題</small>速度一快就左右蛇行。原因是方向盤有延遲：車子已經修回中間了，輪子還在轉，一路修過頭。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>眼睛看遠一點，再加上 IMU：車頭一開始歪就先修，不等車子偏出去。模擬中晃動從 11 公分降到 3 公分。<span class="cfg">straight_ld、yaw_damp</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>小小的方向修正也讓兩個後輪一快一慢，結果越晃越大。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>方向盤打超過 25 度才讓兩輪不同速。<span class="cfg">diff_from</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>「彎道靠內」在直線上被誤觸發，隧道前一直往右靠，壓到右線。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>直線上不靠內，彎道結束後更快回到中間。<span class="cfg">inner_bias</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>舵機中心偏左，方向盤「打正」時車子其實往左偏。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>所有循線的方向盤角度都往右多補 6 度（爬坡時不補）。用 <code>steer_test.py</code> 量：+15/+25 度實際只有約 7/15 度，−15/−25 度約 14/25 度。<span class="cfg">fwa_trim 6、climb_trim 0</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>直線一提到 80%，一出發就衝進第一個右彎甩出去（起點的直線很短）。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>出發 3 秒內最多 50%，之後直線再慢慢加到 82%。<span class="cfg">start_v 50、start_s 3</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>直線一路從 66 拉到 86%，到 82% 以上圈速幾乎不再變快。</div><div class="arrow"><span>→</span></div><div class="s"><small>心得</small>一圈裡直線只占約 10 秒，花最多時間的是彎道、坡道、路口。直線停在 82%，穩比快重要。<span class="cfg">v_straight 82</span></div></div>
+  </div>
+</section>
+
+<!-- ============ 彎道 ============ -->
+<section class="ch" id="curve">
+  <div class="ch-head"><span class="tag" style="background:var(--s-curve)">彎道</span><h2>彎道：先減速，轉得過再說</h2></div>
+  <div class="stage">
+    <div>
+      <h3><b>1</b>怎麼知道是彎道</h3>
+      <p class="t"><span class="src ctl">手感</span>方向盤打超過 24 度。</p>
+      <p class="t"><span class="src cv">眼睛</span>白線的「軟尺」往左鼓就是左彎、往右鼓就是右彎。</p>
+    </div>
+    <div>
+      <h3><b>2</b>認出來後怎麼開</h3>
+      <ul>
+        <li>油門<b>馬上</b>放到 40%，方向盤快打到底（38 度以上）時 34%，出彎後再<b>慢慢</b>加回來。</li>
+        <li>外側後輪轉快、內側轉慢，幫車子轉過急彎。</li>
+        <li>右彎時稍微靠內側一點（最多 6 公分），但往左修最多 25 度。</li>
+        <li>一直偏同一邊，就再多轉一點。</li>
+      </ul>
+    </div>
+    <div>
+      <h3><b>3</b>只看到一條線怎麼辦</h3>
+      <p class="t">急彎時常只看得到外側那條線。這時從那條線往內推半個路寬當成要走的路。至於它是左線還是右線，看<b>它剛剛在哪裡</b>：靠近上一張的左線就是左線。</p>
+    </div>
+  </div>
+  <h3 class="sub">遇到的問題和改法</h3>
+  <div class="fixes">
+    <div class="fix"><div class="p"><small>問題</small>急彎時外側線滑到畫面另一半，電腦以為「在左半邊就是左線」，認錯邊，方向打反衝出去。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>改成看線「剛剛在哪」，不看它現在在畫面哪一半。</div></div>
+    <div class="fix"><div class="p"><small>問題</small>上坡前的右彎，右線跑到正前方，車子猛往左修，修過頭撞牆。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>右彎時不准往左猛修，寧可稍微壓到內側的線。</div></div>
+    <div class="fix"><div class="p"><small>問題</small>車子卡住不動時，「一直偏同一邊就多轉一點」越累積越大，一推動就往旁邊衝。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>卡住時暫停累積，平常也會慢慢歸零。</div></div>
+    <div class="fix"><div class="p"><small>問題</small>想讓彎道開快一點，把「多彎才算彎道」放寬，結果撞到隧道柱子。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>改回原本的範圍，這條路不要再試。<span class="cfg">fwa_low / fwa_high = 8 / 24</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>過大彎時一下加速一下減速，不順；看到彎才減速也太晚。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法（新版才有）</small>看前方的路有多彎，<b>提早</b>減速，彎中保持穩定速度。現在上車的穩定版還沒有這個功能。<span class="cfg">preview_k</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>最近急彎轉不過。實測發現方向盤打到 35 度時，車子實際只轉了預期的四分之三。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>這是硬體（舵機、連桿、電池接頭）的問題，程式補不回來。先檢查硬體，再用 <code>steer_test.py</code> 重測。</div></div>
+    <div class="fix"><div class="p"><small>問題</small>換電池後每趟都在第一個連續右彎轉過頭甩出去，以為是新電池變快。</div><div class="arrow"><span>→</span></div><div class="s"><small>真正原因</small>舵機連桿鬆了：方向盤指令從 −7 到 +6.5 度，車頭都往同一邊轉。鎖緊後一切恢復。<b>突然每趟都怪怪的，先檢查連桿。</b></div></div>
+    <div class="fix"><div class="p"><small>問題</small>連續右彎之間偏右 30–40 公分，往左修卡在 15 度修不回來，開出去。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>右彎中往左最多可以修 25 度。<span class="cfg">inner_bias.left_max 25</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>彎道速度提到 42–50%，圈速沒變快、反而比較晃；用「扣掉置中修正」算彎度時，右彎打到底被當成沒打到底，直接衝出去。</div><div class="arrow"><span>→</span></div><div class="s"><small>心得</small>彎道維持 40%、打到底 34%。<span class="cfg">v_curve 40、v_sat 34</span></div></div>
+  </div>
+</section>
+
+<!-- ============ 岔路 ============ -->
+<section class="ch" id="fork">
+  <div class="ch-head"><span class="tag" style="background:var(--s-fork)">岔路</span><h2>岔路：別被多出來的線騙走</h2></div>
+  <div class="stage">
+    <div>
+      <h3><b>1</b>怎麼知道是岔路</h3>
+      <ul>
+        <li><span class="src cv">眼睛</span>找到的「兩條線」靠得太近（不到半個路寬）→ 其實是同一條粗線被看成兩條。</li>
+        <li><span class="src cv">眼睛</span>一條線突然斷掉時，看它旁邊：有一條橫的線接著 = 直角彎；有一條線斜斜地往車子這邊叉過來 = 岔路；什麼都沒有 = 路的盡頭。</li>
+      </ul>
+    </div>
+    <div>
+      <h3><b>2</b>認出來後怎麼開</h3>
+      <ul>
+        <li>是同一條線：只留一條，照「只看到一條線」的方式走。</li>
+        <li>是岔路：不轉彎，照原本的路走。</li>
+        <li>剛過完坡頂路口的 6 秒內，方向盤不准大轉，免得被路口其他線帶走。</li>
+        <li>隧道前那個岔路另外處理，見<a href="#tunnel">隧道</a>。</li>
+      </ul>
+    </div>
+    <div>
+      <h3><b>3</b>例外</h3>
+      <p class="t">兩條線在畫面上一左一右離很遠，一定是兩條線。坡道上因為角度關係，量出來的路寬會變窄，不能拿「太近」來判斷。</p>
+    </div>
+  </div>
+  <h3 class="sub">遇到的問題和改法</h3>
+  <div class="fixes">
+    <div class="fix"><div class="p"><small>問題</small>一條粗線被看成兩條，車子以為路變窄，要走的路一下子跳了 40 公分，方向猛打開出去。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>離車子近的地方也量一次寬度，太近就合回一條。</div></div>
+    <div class="fix"><div class="p"><small>問題</small>坡道上兩條線明明很清楚，卻因為量起來太窄被合成一條，又認錯邊，方向打到底 4.5 秒。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>加上「一左一右離很遠就一定是兩條線」的例外。</div></div>
+    <div class="fix"><div class="p"><small>問題</small>「直角彎模式」會把岔路、路的盡頭也當成直角彎去轉。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>加上看旁邊線的檢查；而且這條賽道一般循線就過得了，直角彎模式目前關閉。<span class="cfg">corner.enable: false</span></div></div>
+  </div>
+</section>
+
+<!-- ============ 隧道 ============ -->
+<section class="ch" id="tunnel">
+  <div class="ch-head"><span class="tag" style="background:var(--s-lost)">隧道</span><h2>隧道：慢下來、先靠左，再鑽進去</h2></div>
+  <p>隧道前有一段岔路直線，拱門入口比這段直線<b>偏左</b>，車道在拱門前往左拐一下，出隧道又接 S 彎和急右彎。鏡頭在這裡看到「偏右、前方往左」其實是對的，不能擋，只能提早慢下來、先往左靠。</p>
+  <div class="stage">
+    <div>
+      <h3><b>1</b>怎麼知道快到了</h3>
+      <ul>
+        <li><span class="src imu">內耳</span>車頭轉到「隧道方向」±15 度、轉速不大，維持 0.6 秒 → 進入隧道段。</li>
+        <li>隧道方向怎麼算：比賽起點（下坡後的大直線）的車頭 −375 度；每過一次坡頂路口，再用「左轉開始時的車頭 −112 度」重新對準。</li>
+        <li>第一圈因為擺車角度有誤差，放寬到 ±30 度。</li>
+        <li><span class="src cv">眼睛</span>畫面中段平均亮度低於 40、連續 3 張 → 在隧道裡。</li>
+      </ul>
+    </div>
+    <div>
+      <h3><b>2</b>認出來後怎麼開</h3>
+      <ul>
+        <li>岔路直線：最多 50%，目標往左偏 13 公分。</li>
+        <li>隧道裡（變暗）：36%，不再往左偏，眼睛看近一點（前視縮短 5 公分）。</li>
+        <li>出隧道 5.5 秒內最多 45%（出口 S 彎後 5 秒有急右彎）。</li>
+        <li>這一圈進過隧道就不再認，到下一圈才再認。</li>
+      </ul>
+    </div>
+    <div>
+      <h3><b>3</b>順便處理進坡前</h3>
+      <p class="t"><span class="src imu">內耳</span>隧道變暗那一刻的車頭 −200 度，就是進坡前那段短直線（13 次紀錄 ±8 度）。變暗後 8–20 秒內看到這個方向，最多 42%，讓接著的右彎轉得進坡道。</p>
+    </div>
+  </div>
+  <h3 class="sub">遇到的問題和改法</h3>
+  <div class="fixes">
+    <div class="fix"><div class="p"><small>問題</small>以為「只剩一條線、說要往左」是誤判，擋掉往左修，結果直直撞上拱門右腳。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>不干涉方向，只限速、目標往左偏。<span class="cfg">tunnel.v_zone、y_bias</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>換了起點，用車頭方向認不到隧道，65–86% 衝進拱門。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>三道保險：起點方向（比賽起點 −375°）、坡頂路口重新對準（−112°）、畫面變暗也限速。<span class="cfg">yaw_offset、junc_offset、dark</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>隧道裡也往左偏，貼著左牆；出隧道後還在偏，被推到左邊 13–19 公分。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>只在進隧道前偏，變暗後就不偏。</div></div>
+    <div class="fix"><div class="p"><small>問題</small>隧道裡 40–45% 會左右甩、貼右牆。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>隧道裡 36%，前視只縮短 5 公分（縮 10 公分會蛇行）。<span class="cfg">tunnel.v 36、ld −0.05</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>出隧道後加速太快，S 彎後的急右彎衝出去。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>出隧道 5.5 秒內最多 45%。<span class="cfg">after_dark_s、v_after</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>進坡前的右彎以 55–65% 衝進去，被甩到左邊 30 公分。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>用「隧道方向 −200°」認出進坡前的短直線，最多 42%。<span class="cfg">pre_off、pre_v</span></div></div>
+  </div>
+</section>
+
+<!-- ============ 上坡 ============ -->
+<section class="ch" id="up">
+  <div class="ch-head"><span class="tag" style="background:var(--s-up)">上坡</span><h2>上坡：一口氣衝上去</h2></div>
+  <div class="stage">
+    <div>
+      <h3><b>1</b>怎麼知道是上坡</h3>
+      <ul>
+        <li><span class="src imu">內耳</span>車頭抬超過 9 度、連續 8 張（約 0.27 秒），平地最多 6 度，坡上 13 度以上。</li>
+        <li><span class="src cv">眼睛</span>畫面變化變小 = 車子變慢；幾乎不動 = 卡住了。</li>
+        <li>兩個都成立才進入「爬坡模式」。</li>
+      </ul>
+    </div>
+    <div>
+      <h3><b>2</b>認出來後怎麼開</h3>
+      <ul>
+        <li>車頭一抬、車子一慢，馬上加油門 15%。</li>
+        <li>真的卡住：油門一直往上加（最多加 45%），兩個後輪一起出力推。</li>
+        <li>坡上固定 62%，<b>只跟著左邊的線走</b>；車頭抬起 6 度以上就不用差速，兩輪一起推。</li>
+        <li><span class="src imu">內耳</span>進坡 1.5 秒後<b>鎖車頭方向</b>：偏離進坡時的方向，每 1 度多修 0.7 度（最多 15 度），過坡頂放開。</li>
+        <li>畫面上的路突然跳很多，先不相信，連續看到才相信。</li>
+        <li>進坡 1 秒後開始看右線：太靠右就強制往左（最多 38 度）。</li>
+      </ul>
+    </div>
+    <div>
+      <h3><b>3</b>到了坡頂</h3>
+      <p class="t"><span class="src imu">內耳</span>車頭從抬高變回快要水平（低於 4.5 度）就是過坡頂。油門放到 42%，開始準備<a href="#dash">虛線轉彎</a>。</p>
+    </div>
+  </div>
+  <h3 class="sub">遇到的問題和改法</h3>
+  <div class="fixes">
+    <div class="fix"><div class="p"><small>問題</small>一推動就把油門收回來，又卡住，走走停停 5 次。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>推動後先保持油門 3 秒，確定在跑了才慢慢收。收得比加得慢。</div></div>
+    <div class="fix"><div class="p"><small>問題</small>進坡道時會停頓一下：要等畫面幾乎不動才加油門，太晚。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>有了 IMU 後，車頭一抬超過 9 度就先加油門，不等卡住。<span class="cfg">ramp_pitch</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>平地急彎時方向盤也會打很大，被誤以為卡住，油門猛加、轉不過彎，騎上坡道旁的木條。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>要車頭真的有抬起來才算，平地不會誤觸發。</div></div>
+    <div class="fix"><div class="p"><small>問題</small>坡道地面不平，畫面算出的路一下跳 30–40 公分，方向打到底衝出坡頂。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>爬坡時路突然跳太多先不信，連續 6 張都這樣才相信。</div></div>
+    <div class="fix"><div class="p"><small>問題</small>坡頂右邊的框框、膠帶被當成右線，車子往右撞上去。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>爬坡時只跟著左線走；右線太近就不准往右轉。</div></div>
+    <div class="fix"><div class="p"><small>問題</small>下坡到底卡了一下，又被誤認成上坡，在平地上只跟左線走，開出賽道。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>爬完坡 20 秒內不再進爬坡模式，而且車頭要真的抬起來才算。</div></div>
+    <div class="fix"><div class="p"><small>問題</small>平地撞到邊條，車身一跳就被當成上坡，在平地上強制左轉。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>車頭要連續 8 張都抬超過 9 度才算上坡。<span class="cfg">arm_n 8</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>只看鏡頭時坡上會左右甩：先往右偏 25 度、再往左 46 度，開上左護條差點翻車。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>用 IMU 鎖住「進坡那一刻的車頭方向」。太早鎖會擋住出彎，所以 1.5 秒後才鎖；過坡頂就放開，否則會和平台上的循線互搶。<span class="cfg">ramp_hold_k 0.7、ramp_hold_after 1.5、crest_yaw_add 0</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>補了置中修正 6 度後，出彎接坡一路往右，撞坡道右側。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>爬坡時不補置中修正。<span class="cfg">climb_trim 0</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>坡上只剩右線卻被當成左線，一路往右打，3.7 秒時壓上右護條掉下去；原本的保護要 3.8 秒才開始。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>右線保護進坡 1 秒就開始；修不回來的那次再放寬到 38 度。<span class="cfg">ramp_xr_after 1.0、ramp_guard 38</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>進坡前右彎內側輪只剩 7%，頂到坡底就停頓。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>車頭抬起 6 度以上不用差速，兩輪一起推。<span class="cfg">nodiff_pitch 6</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>坡頂前隆起處卡一下，速度上限放到 82% 一衝就衝過坡頂，滑出平台。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>坡上卡住多加 20% 只限進坡 2.5 秒內（進坡口卡護條用）。<span class="cfg">ramp_stuck_add 20、ramp_stuck_window 2.5</span></div></div>
+  </div>
+  <div class="why"><b>注意：上坡口後來裝了左右護條。</b>這個版本進坡時車子都偏左 22–25 公分（以前沒護條所以沒事），2026-11-06 21:00 之後頂到左護條卡過。之後試過的修正（進坡前目標往右 8–15 公分、坡中隆起維持 62%、坡頂判斷要 2.5 秒、坡上卡住前輪回正）都<b>不在</b>這個版本裡；同一段時間車子也出現推不動的硬體狀況，還沒查完。</div>
+</section>
+
+<!-- ============ 虛線轉彎 ============ -->
+<section class="ch" id="dash">
+  <div class="ch-head"><span class="tag" style="background:var(--s-dash)">虛線</span><h2>虛線轉彎：照背好的動作做</h2></div>
+  <p>坡頂是一個 T 字路口，要左轉，地上畫著白色虛線。這裡白線很亂，跟著線走會被帶歪，所以改成<b>照背好的動作做</b>：眼睛只負責決定「什麼時候開始轉」，轉多少由內耳量。</p>
+  <div class="stage">
+    <div>
+      <h3><b>1</b>怎麼知道到了</h3>
+      <ul>
+        <li><span class="src imu">內耳</span>過了坡頂 1.5 秒後開始找。</li>
+        <li><span class="src cv">眼睛</span>連續兩張畫面都看到 2 個以上白色小方塊 = 看到虛線。</li>
+        <li>方塊靠得夠近，或看到後再等 0.45 秒，就開始轉。</li>
+        <li>過坡頂 5 秒還沒看到，也直接轉（保險）。</li>
+      </ul>
+    </div>
+    <div>
+      <h3><b>2</b>背好的動作</h3>
+      <ul>
+        <li>看到虛線後先降到 35%，左轉、直走都用這個速度。</li>
+        <li><b>左轉</b>：方向盤往左打 40 度，<span class="src imu">內耳</span>量到車頭轉了 58 度就回正（之後還會再滑約 20 度，最多 2 秒）。</li>
+        <li><b>直走</b>：車頭保持在 96 度，至少 3 秒。</li>
+        <li><span class="src cv">眼睛</span>直走時看虛線，讓虛線保持在車子<b>右邊 28 公分</b>，偏了就微調車頭方向。</li>
+        <li>時間到了虛線還沒到位，就多走一下。</li>
+      </ul>
+    </div>
+    <div>
+      <h3><b>3</b>為什麼從坡頂開始算</h3>
+      <p class="t">實測發現：從坡頂到該左轉的地方，每次都是 3 到 3.25 秒，很準。所以用「過坡頂」當碼錶的起點，再用虛線微調。</p>
+    </div>
+  </div>
+  <h3 class="sub">遇到的問題和改法</h3>
+  <div class="fixes">
+    <div class="fix"><div class="p"><small>問題</small>賽道的虛線從藍色改成白色，原本找藍色的方法沒用了。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>改成找「很白、扁扁的、實心的小方塊」。車道線又長又斜，不會被認成方塊。</div></div>
+    <div class="fix"><div class="p"><small>問題</small>太晚才看到虛線，轉完已經走到虛線的另一邊。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>從畫面更上面（更遠）就開始找，並且「夠近就轉」。<span class="cfg">dash_near、dash_wait</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>以前用「爬坡加油門結束後幾秒」來算時間，每圈差很多。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>改用 IMU 找出坡頂，從坡頂開始算。</div></div>
+    <div class="fix"><div class="p"><small>問題</small>用畫面估「轉了幾度」，誤差 5–7 度，轉完方向不準。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>改用 IMU 量。原本轉到 66 度停，但回正後車頭還會滑約 20 度，直走時衝到 101 度往左飄，改成 58 度就回正。<span class="cfg">turn_yaw 58</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>直走段改用鏡頭沿虛線走，車頭會衝到 110–120 度，下坡對不準。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>關掉鏡頭直走，回到 IMU 鎖 96 度、再用虛線微調。<span class="cfg">cam: false</span></div></div>
+    <div class="fix"><div class="p"><small>試過、還沒採用</small>想提早轉、轉完就在虛線左側好加速：觸發距離 0.73 m 時有一次頂到平台上的異物；改用「過坡頂 3.3 秒就以 −30 度畫大弧」還沒成功跑完。</div><div class="arrow"><span>→</span></div><div class="s"><small>目前</small>這個版本仍是看到虛線約 0.45 m 或等 0.45 秒才轉，轉完虛線在車子左邊 20–30 公分，直走時再斜切過去。<span class="cfg">dash_near 285、dash_wait 0.45</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>左轉後車子常常停在虛線左邊不夠遠，下坡對不準。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>直走時用虛線位置把車子拉到虛線左邊 28 公分，修正力道加強。<span class="cfg">dash_y、dash_k</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>整體提速後，平台上衝太快，來不及轉。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>過坡頂後固定放慢到 42%，提速只提直線和彎道。<span class="cfg">top_v</span></div></div>
+  </div>
+</section>
+
+<!-- ============ 下坡 ============ -->
+<section class="ch" id="down">
+  <div class="ch-head"><span class="tag" style="background:var(--s-down)">下坡</span><h2>下坡：先對準，再下去，落地再轉</h2></div>
+  <div class="stage">
+    <div>
+      <h3><b>1</b>怎麼知道到哪一步</h3>
+      <ul>
+        <li>虛線那段直走完 → 開始對準下坡。</li>
+        <li><span class="src imu">內耳</span>車頭往下栽超過 9 度 → 已經在下坡上。</li>
+        <li><span class="src imu">內耳</span>車頭回到快要水平 → 落地了。</li>
+        <li>一直沒感覺到落地，時間到也會轉（保險）。</li>
+      </ul>
+    </div>
+    <div>
+      <h3><b>2</b>每一步怎麼開</h3>
+      <ul>
+        <li><b>對準</b>：把車頭轉到 76 度，35% 前進，方向盤最多修 20 度；<span class="src cv">眼睛</span>看車子偏左多少，偏左每 1 公尺目標多往右 30 度（最多 10 度）。</li>
+        <li><b>下坡中</b>：車頭目標 66 度，往右最多修 12 度、往左最多 6 度；<span class="src cv">眼睛</span>偏右每 1 公尺目標往左 30 度（最多 12 度）。</li>
+        <li><b>下坡速度</b>：<span class="src cv">眼睛</span>畫面變化大於 7（太快）就<b>反打馬達煞車</b>（−10%），小於 2.5（太慢）照 30% 推，中間滑行。</li>
+        <li><b>落地</b>：方向盤往右打，車頭轉到 45 度（相對路口）就回到一般循線；之後 14 秒內最多 38%。</li>
+      </ul>
+    </div>
+    <div>
+      <h3><b>3</b>為什麼要分這麼細</h3>
+      <p class="t">下坡口很窄、坡面會讓車子往右滑、坡底馬上接一個右彎。每一步需要的方向和速度都不同，用 IMU 感覺「現在在坡上還是已經落地」，才能一步一步換。</p>
+    </div>
+  </div>
+  <h3 class="sub">遇到的問題和改法</h3>
+  <div class="fixes">
+    <div class="fix"><div class="p"><small>問題</small>車頭角度差了一點（69–73 度）就從下坡右邊掉下去；成功那次是 80 度。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>對準目標定在 80 度，用 IMU 量。<span class="cfg">align_yaw</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>開太慢，車底卡在坡口打滑；開太快（40%）又往右偏。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>對準時 35%、下坡中 30%，剛好卡不住也不會偏。<span class="cfg">align_v、down_sv</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>下坡本來就往右偏，程式卻一直往左拉回來，反而亂修。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>一感覺到在下坡，就只准往右小修，不往左拉。</div></div>
+    <div class="fix"><div class="p"><small>問題</small>還在坡上就右轉，切到彎道內側壓線，接著修過頭開出去。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>等 IMU 確定落地才右轉。</div></div>
+    <div class="fix"><div class="p"><small>問題</small>下坡盡頭右轉轉太多，開出賽道。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>右轉改成「車頭轉到位就停」，不是轉固定幾秒。<span class="cfg">bend_yaw</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>左轉出來偏太外面，對準時方向盤最多只能修 12 度，修不回來，往左開出平台。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法（2026-11-04）</small>對準時方向盤可以修到 20 度。如果變成往右修過頭，改成 16 度。<span class="cfg">align_fwa</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>下坡時車子偏左 25–43 公分，卡在左側邊條。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>對準目標改 76 度，再依鏡頭看到的偏移往右多轉。<span class="cfg">align_yaw 76、align_off_k 30</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>滿電時下坡衝太快，車頭往右轉 23 度、落地偏右 75–80 公分；只准往右修，前輪卡在 0 拉不回來。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>下坡反打煞車（太快才反打、快停就滑行或推），往左可修 6 度，坡上也看鏡頭偏移。<span class="cfg">down_brake −10、down_brake_m 7、down_push_m 2.5、down_lmax 6、down_off_k 30</span></div></div>
+    <div class="fix"><div class="p"><small>問題</small>反打太多，坡上慢慢滑 4 秒，還在坡上保底時間就到了，提早右轉開出去。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>改成三段（反打 / 滑行 / 推），保底右轉也要離開坡面才轉。</div></div>
+    <div class="fix"><div class="p"><small>問題</small>落地右轉每次都轉過頭約 25 度，切到內側偏右 35 公分。</div><div class="arrow"><span>→</span></div><div class="s"><small>改法</small>右轉提早 15 度結束交回循線。<span class="cfg">bend_yaw 30 → 45</span></div></div>
+  </div>
+</section>
+
+<!-- ============ 起跑 ============ -->
+<section class="ch" id="start">
+  <div class="ch-head"><span class="tag" style="background:var(--ok)">起跑</span><h2>比賽起跑：等綠燈、在大直線出發</h2></div>
+  <div class="two">
+    <div class="box">
+      <h3>等綠燈</h3>
+      <ul>
+        <li>程式啟動、鏡頭和模型都準備好後，按 <code>r</code> 開啟起跑模式（或啟動時加 <code>--race</code>）。</li>
+        <li>每 50 毫秒讀一次中控台 <code>http://192.168.0.149:8080/go</code>，要先讀到 0、再變成 1 才出發。</li>
+        <li>出發後自動關閉，下一場要再按一次；讀不到只顯示「離線」，不影響手動出發和停車。</li>
+        <li>加 <code>--race-stop</code>：裁判按停止（旗標回 0）就停車。</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>起點擺放</h3>
+      <ul>
+        <li>比賽起點在<b>下坡彎道出來的那條大直線</b>上，位置不固定，但車頭要順著直線擺。</li>
+        <li>隧道方向是用「出發時的車頭」推算的（−375 度），擺歪 20 度以內都認得到。</li>
+        <li>在別的地方出發時要改 <code>tunnel.yaw_offset</code>，否則第一圈認不到隧道。</li>
+        <li>出發後 3 秒內最多 50%。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 時間軸 ============ -->
+<section class="ch" id="lap">
+  <div class="ch-head"><span class="tag" style="background:var(--accent)">實例</span><h2>實際跑一次：上坡到下坡的 26 秒</h2></div>
+  <p>2026-11-04 某一趟的第一圈（當時的設定，和現在略有不同：當時左轉轉到 66 度、對準 80 度）。上面的色塊是車子當時「在做什麼」，按實際時間長短畫；下面的橘線是 IMU 感覺到的車頭高低，虛線是 ±9 度。</p>
+  <div class="diag" role="img" aria-label="時間軸：32.3 秒開始爬坡，41.9 秒左轉，43.9 秒直走，46.9 秒對準下坡，約 52 秒開始下坡，55.5 秒落地右轉，57.2 秒回到一般循線">
+    <svg viewBox="0 0 760 190">
+      <g font-size="12">
+        <rect x="62.5" y="20" width="240" height="34" fill="var(--s-up)" rx="3"/>
+        <text class="w" x="70" y="42">爬坡（只跟左線）</text>
+        <rect x="302.5" y="20" width="50" height="34" fill="var(--s-dash)" rx="3"/>
+        <text class="w" x="308" y="42">左轉</text>
+        <rect x="352.5" y="20" width="75" height="34" fill="var(--s-fork)" rx="3"/>
+        <text class="w" x="360" y="42">直走</text>
+        <rect x="427.5" y="20" width="215" height="34" fill="var(--s-down)" rx="3"/>
+        <text class="w" x="436" y="42">對準 → 下坡</text>
+        <rect x="642.5" y="20" width="42.5" height="34" fill="var(--s-curve)" rx="3"/>
+        <text class="w" x="646" y="42">右轉</text>
+        <rect x="685" y="20" width="45" height="34" fill="var(--s-flat)" rx="3"/>
+        <text class="w" x="689" y="42">循線</text>
+      </g>
+      <line x1="30" y1="120" x2="730" y2="120" stroke="var(--rule)"/>
+      <line x1="30" y1="97.5" x2="730" y2="97.5" stroke="var(--muted)" stroke-dasharray="3 4" opacity=".6"/>
+      <line x1="30" y1="142.5" x2="730" y2="142.5" stroke="var(--muted)" stroke-dasharray="3 4" opacity=".6"/>
+      <text class="m" x="2" y="101">+9°</text>
+      <text class="m" x="6" y="124">0°</text>
+      <text class="m" x="4" y="146">−9°</text>
+      <polyline fill="none" stroke="var(--accent)" stroke-width="2.2"
+        points="30,118 55,116 62.5,87 90,83 150,82 200,84 240,85 270,95 290,112 302.5,117 352.5,119 427.5,119 450,119 500,117 530,116 555,126 567,148 580,153 595,157 610,155 625,143 642.5,130 660,123 685,119 730,120"/>
+      <g class="m">
+        <text x="56" y="172">32.3</text>
+        <text x="293" y="172">41.9</text>
+        <text x="342" y="172">43.9</text>
+        <text x="417" y="172">46.9</text>
+        <text x="545" y="172">≈52</text>
+        <text x="632" y="172">55.5</text>
+        <text x="676" y="172">57.2 秒</text>
+      </g>
+      <text class="m" x="90" y="76">爬坡，車頭抬 13°</text>
+      <text class="m" x="560" y="182">下坡，車頭栽 15°</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ============ 學到的事 ============ -->
+<section class="ch" id="lessons">
+  <div class="ch-head"><span class="tag" style="background:var(--muted)">心得</span><h2>一路改下來學到的事</h2></div>
+  <div class="two">
+    <div class="box">
+      <h3>怎麼判斷</h3>
+      <ul>
+        <li>坡道交給 IMU，眼睛只看得出「相對」陡不陡。</li>
+        <li>直線、彎道看方向盤打多少，比看畫面穩定。</li>
+        <li>不要相信只看一眼的結果，要連續幾次都一樣才算。</li>
+        <li>每個「等某件事發生」都要有保險，時間到了沒發生也要動作。</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>怎麼開、怎麼調</h3>
+      <ul>
+        <li>固定動作用「轉到幾度就停」，不要用「轉幾秒」，車子狀況變了也一樣準。</li>
+        <li>油門加要慢、收也要慢；減速要馬上。</li>
+        <li>一次只改一個設定，跑兩次以上再比較。試過會撞的方向記下來，不要再試。</li>
+        <li>出發前檢查四件事：IMU 有開、鏡頭角度對（<code>cam_align.py</code>）、電池接頭插緊、<b>舵機連桿沒鬆</b>。</li>
+        <li>突然每趟都失敗、或同樣指令效果完全不同，先查硬體（連桿、馬達、電池）再改程式。</li>
+        <li>穩的版本要存檔（<code>orin_snapshot/</code> + tag），試壞了才退得回去。</li>
+      </ul>
+    </div>
+  </div>
+  <p class="note">每次測試的紀錄在 <code>orin_tools/logs/&lt;日期&gt;/</code>，總表在 <code>orin_tools/logs/README.md</code>。</p>
+</section>
+</main>
+</div>

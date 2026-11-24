@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orin–BMduino 測試紀錄</title>
+<style>
+:root{
+  --bg:#f7f7f5; --card:#ffffff; --ink:#1d1d1b; --muted:#6b6b66; --line:#e3e2dd;
+  --ok:#1f7a4d; --ok-bg:#e5f3ec; --bad:#b3261e; --bad-bg:#fbe9e7;
+  --warn:#8a5a00; --warn-bg:#fdf1d8; --idle:#55555a; --idle-bg:#ececec;
+  --accent:#2b5fab; --code:#f0efeb;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#161615; --card:#1f1f1e; --ink:#ecebe6; --muted:#a3a29c; --line:#34332f;
+    --ok:#6fcf97; --ok-bg:#163126; --bad:#f28b82; --bad-bg:#3a1c1a;
+    --warn:#f2c46d; --warn-bg:#352a12; --idle:#b5b5b5; --idle-bg:#2c2c2c;
+    --accent:#8ab4f8; --code:#2a2a28;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#161615; --card:#1f1f1e; --ink:#ecebe6; --muted:#a3a29c; --line:#34332f;
+  --ok:#6fcf97; --ok-bg:#163126; --bad:#f28b82; --bad-bg:#3a1c1a;
+  --warn:#f2c46d; --warn-bg:#352a12; --idle:#b5b5b5; --idle-bg:#2c2c2c;
+  --accent:#8ab4f8; --code:#2a2a28;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.65 "Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif}
+main{max-width:960px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:26px;margin:0 0 4px}
+h2{font-size:19px;margin:40px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+h3{font-size:16px;margin:0 0 6px}
+p{margin:6px 0}
+.sub{color:var(--muted);margin-bottom:20px}
+code{background:var(--code);padding:1px 6px;border-radius:4px;font-size:13px;
+  font-family:Consolas,"Cascadia Mono",monospace}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:12px 0}
+.tag{display:inline-block;font-size:12px;font-weight:600;padding:1px 9px;border-radius:999px;white-space:nowrap}
+.ok{color:var(--ok);background:var(--ok-bg)} .bad{color:var(--bad);background:var(--bad-bg)}
+.warn{color:var(--warn);background:var(--warn-bg)} .idle{color:var(--idle);background:var(--idle-bg)}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.summary .card{margin:0}
+.summary .big{font-size:20px;font-weight:700;margin-top:4px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600}
+.tablewrap{overflow-x:auto}
+ol.timeline{list-style:none;padding:0;margin:0;border-left:2px solid var(--line)}
+ol.timeline li{position:relative;padding:0 0 18px 20px}
+ol.timeline li::before{content:"";position:absolute;left:-7px;top:6px;width:12px;height:12px;border-radius:50%;
+  background:var(--card);border:2px solid var(--muted)}
+ol.timeline li.s-ok::before{border-color:var(--ok);background:var(--ok)}
+ol.timeline li.s-bad::before{border-color:var(--bad);background:var(--bad)}
+ol.timeline li.s-warn::before{border-color:var(--warn);background:var(--warn)}
+.chain{display:flex;flex-direction:column;gap:6px}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.node{border:1.5px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font-size:13px}
+.node.ok{border-color:var(--ok)} .node.bad{border-color:var(--bad)} .node.warn{border-color:var(--warn)}
+.arrow{color:var(--muted)}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-top:8px}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.step{border-radius:8px;padding:10px;text-align:center;font-size:13px}
+.step b{display:block;font-size:16px}
+.file{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:start}
+.file .path{font-family:Consolas,monospace;font-size:14px;font-weight:600;word-break:break-all}
+.file .desc{grid-column:1/-1;color:var(--muted);font-size:14px}
+ul{margin:6px 0;padding-left:22px}
+</style>
+</head>
+<body>
+<main>
+
+<h1>Orin ↔ BMduino 測試紀錄</h1>
+<div class="sub">2026-10-09 ・ 自走車專案（Jetson Orin Nano Super + BMduino UNO + PCA9685 + DRV1011）</div>
+
+<div class="summary">
+  <div class="card"><span class="tag ok">通過</span><div class="big">UART 通訊</div><p>Orin ↔ BMduino 雙向正常，99/99 封包有效</p></div>
+  <div class="card"><span class="tag ok">通過</span><div class="big">指令／回報</div><p>CMD 送出、STA 回傳 19/0，checksum 全部正確</p></div>
+  <div class="card"><span class="tag bad">未通過</span><div class="big">後輪馬達</div><p>馬達 A 完全不轉；馬達 B 只能單向轉</p></div>
+  <div class="card"><span class="tag idle">待測</span><div class="big">前輪舵機</div><p>還沒回報 <code>--fwa 20</code> 的結果</p></div>
+</div>
+
+<h2>一、測試過程</h2>
+<ol class="timeline">
+  <li class="s-ok"><h3>Orin 端環境設定</h3>
+    <p>pyserial 已安裝；使用者 <code>jetson</code> 加入 <code>dialout</code> 群組；停用並關閉 <code>nvgetty</code>，避免它佔用 UART。</p></li>
+  <li class="s-warn"><h3>燒錄 BMduino：一開始上傳失敗</h3>
+    <p>錯誤訊息：<code>can't enumerate any e-Link32</code>（exit status 30）。原因是 USB 插錯口：插到的那個口在電腦上顯示為 COM7（PID 8069），沒有燒錄要用的 HID 介面。</p>
+    <p>改插另一個口後，電腦顯示為 e-Link32（PID 802F，HID + <b>COM6</b>），上傳成功，監控視窗出現 <code>BMduino UART test ready</code>。</p></li>
+  <li class="s-warn"><h3>找序列埠</h3>
+    <p>這台 Orin 沒有 <code>/dev/ttyTHS0</code>，40-pin 的 Pin 8/10 對應的是 <b><code>/dev/ttyTHS1</code></b>。程式放在 <code>~/orin_tools/</code> 底下，不在 <code>~/</code>。</p></li>
+  <li class="s-ok"><h3>UART 通訊測試：通過</h3>
+    <p><code>python3 uart_test.py -p /dev/ttyTHS1 -b 115200</code><br>
+    送出 CMD 99 個，收到有效 STA <b>99</b> 個，無效 <b>0</b> 個 → PASS。接線、鮑率、封包格式、checksum 都正確，兩個方向都通。</p></li>
+  <li class="s-bad"><h3>馬達控制測試：通訊正常，但輪子不轉</h3>
+    <p><code>python3 motor_cmd.py --bwl 20 --bwr 20 -t 2</code><br>
+    STA 有效 19、無效 0（通訊正常），但後輪沒有轉。</p></li>
+  <li class="s-bad"><h3>馬達診斷程式：6 個步驟只有 B2 會轉</h3>
+    <div class="steps" style="margin-top:8px">
+      <div class="step bad"><b>A1</b>ENA 高・IN1 高 IN2 低<br>不轉</div>
+      <div class="step bad"><b>A2</b>ENA 高・IN1 低 IN2 高<br>不轉</div>
+      <div class="step bad"><b>A3</b>ENA PWM・IN1 高<br>不轉</div>
+      <div class="step bad"><b>B1</b>ENB 高・IN3 高 IN4 低<br>不轉</div>
+      <div class="step ok"><b>B2</b>ENB 高・IN3 低 IN4 高<br>會轉（反轉）</div>
+      <div class="step bad"><b>B3</b>ENB PWM・IN3 高<br>不轉</div>
+    </div>
+  </li>
+</ol>
+
+<h2>二、目前判斷</h2>
+<div class="card">
+  <p>同一套程式碼，有的腳位能動、有的不能動，所以問題<b>不在程式</b>，在<b>硬體線路或驅動板</b>上。下圖用顏色標出控制路徑上每一段的狀態：</p>
+  <div class="chain" style="margin-top:12px">
+    <div class="row"><span class="node ok">Orin ttyTHS1</span><span class="arrow">→ UART →</span><span class="node ok">BMduino Serial1</span></div>
+    <div class="row"><span class="node ok">BMduino D9</span><span class="arrow">→</span><span class="node ok">74LS14</span><span class="arrow">→</span><span class="node ok">ENB</span><span class="arrow">＋</span><span class="node ok">IN4 ← PCA CH4</span><span class="arrow">→</span><span class="node ok">OUT3/4 → 馬達 B</span></div>
+    <div class="row"><span class="node bad">IN3 ← PCA CH3</span><span class="arrow">給高電位沒作用 → 馬達 B 不能正轉</span></div>
+    <div class="row"><span class="node warn">BMduino D8</span><span class="arrow">→</span><span class="node warn">74LS14</span><span class="arrow">→</span><span class="node warn">ENA</span><span class="arrow">＋</span><span class="node warn">IN1/IN2 ← PCA CH1/2</span><span class="arrow">→</span><span class="node warn">OUT1/2 → 馬達 A</span></div>
+  </div>
+  <div class="legend"><span><span class="tag ok">綠</span> 已確認正常</span><span><span class="tag bad">紅</span> 確認有問題</span><span><span class="tag warn">黃</span> 這條路上至少一處有問題，還不知道是哪一處</span></div>
+</div>
+<div class="card">
+  <h3>可能原因</h3>
+  <ul>
+    <li><b>馬達 B 只能單向轉</b>：PCA9685 CH3 → 驅動板 IN3 這條線沒接好或插錯通道，或是驅動板的 IN3 輸入腳壞了。</li>
+    <li><b>馬達 A 完全不轉</b>：ENA 這一路（D8 → 74LS14 pin 13 → 6Y–5A 跳線 → pin 10 → ENA）、IN1/IN2 的線、OUT1/OUT2 到馬達的線、驅動板 A 通道，或馬達 A 本身。</li>
+    <li>電路圖上的 PCA9685 通道，可能和實際接線不一樣。</li>
+  </ul>
+</div>
+
+<h2>三、我做了什麼、寫了什麼</h2>
+<div class="card file">
+  <span class="path">orin_tools/uart_test.py</span><span class="tag idle">原本就有</span>
+  <span class="desc">Orin 端 UART 測試：送出停止指令、驗證 BMduino 回的 STA，最後判定 PASS/FAIL。這次用它測出 ttyTHS1 是正確的埠。</span>
+</div>
+<div class="card file">
+  <span class="path">orin_tools/bmduino_uart_test/bmduino_uart_test.ino</span><span class="tag idle">原本就有</span>
+  <span class="desc">BMduino 端 UART 測試韌體：收到有效的 CMD 就回 STA，並讓 LED 閃一下。不會驅動馬達。</span>
+</div>
+<div class="card file">
+  <span class="path">orin_tools/bmduino_motor/bmduino_motor.ino</span><span class="tag ok">新寫</span>
+  <span class="desc">正式的控制韌體，依協議書實作：解析 CMD（三個欄位都要有、不可重複、需在範圍內、checksum 要對）；用 PCA9685 控制前輪舵機（CH0）與 IN1~IN4，用 D8/D9 的 PWM 調速；每 100 ms 回報一次 STA；上電時馬達停止；超過 500 ms 沒收到有效 CMD 就停車；未完成的封包超過 50 ms 就丟掉。舵機中心、轉角上限、馬達反向、起動死區都可以在程式開頭的設定區調整。<b>目前還沒有在我這邊編譯驗證過。</b></span>
+</div>
+<div class="card file">
+  <span class="path">orin_tools/motor_cmd.py</span><span class="tag ok">新寫</span>
+  <span class="desc">Orin 端控制程式：<code>BMduinoLink</code> 類別負責送 CMD、解析 STA；有「定值模式」（<code>--fwa --bwl --bwr -t</code>）和鍵盤遙控模式（<code>--teleop</code>，用 W/A/S/D 操作）。預設每秒送 20 次，結束或中斷時會自動送停車指令。已在電腦上驗證 checksum 與協議書範例一致，也能正確處理被拆成兩段的封包，並丟掉 checksum 錯誤的封包。</span>
+</div>
+<div class="card file">
+  <span class="path">orin_tools/bmduino_motor_diag/bmduino_motor_diag.ino</span><span class="tag ok">新寫・已執行</span>
+  <span class="desc">馬達診斷程式：不需要 Orin，自動輪流執行 A1~B3 六個步驟（EN 直接給高電位 / 用 PWM、正轉 / 反轉），用來找出是哪一段出問題。上面那張 6 步驟的結果就是用它測的。</span>
+</div>
+<div class="card file">
+  <span class="path">orin_tools/bmduino_pca_scan/bmduino_pca_scan.ino</span><span class="tag idle">新寫・待執行</span>
+  <span class="desc">PCA9685 通道掃描：ENA/ENB 保持高電位，CH1~CH15 輪流單獨輸出高電位，用來找出 IN1~IN4 實際接在哪個通道。</span>
+</div>
+
+<h2>四、接線對照（依電路圖 0803.kicad_sch）</h2>
+<div class="card tablewrap">
+<table>
+  <tr><th>訊號</th><th>來源</th><th>目的地</th></tr>
+  <tr><td>UART TX</td><td>Orin Pin 8</td><td>BMduino D20 / RX1</td></tr>
+  <tr><td>UART RX</td><td>Orin Pin 10（經 74HC125）</td><td>BMduino D21 / TX1</td></tr>
+  <tr><td>I2C</td><td>BMduino SDA / SCL</td><td>PCA9685 SDA / SCL（0x40）</td></tr>
+  <tr><td>ENA（油門 A）</td><td>D8 → 74LS14 6A→6Y→5A→5Y</td><td>驅動板 ENA</td></tr>
+  <tr><td>ENB（油門 B）</td><td>D9 → 74LS14 1A→1Y→2A→2Y</td><td>驅動板 ENB</td></tr>
+  <tr><td>IN1 ~ IN4（方向）</td><td>PCA9685 CH1 ~ CH4</td><td>驅動板 IN1 ~ IN4</td></tr>
+  <tr><td>前輪舵機</td><td>PCA9685 CH0（推測，電路圖上沒畫）</td><td>舵機</td></tr>
+  <tr><td>馬達 A 電源</td><td>驅動板 OUT1 / OUT2</td><td>MOTOR− / MOTOR+</td></tr>
+  <tr><td>馬達 B 電源</td><td>驅動板 OUT3 / OUT4</td><td>MOTOR− / MOTOR+</td></tr>
+  <tr><td>編碼器 A</td><td>ENC_A / ENC_B</td><td>BMduino D5 / D4（目前沒用到）</td></tr>
+  <tr><td>編碼器 B</td><td>ENC_A / ENC_B</td><td>BMduino D7 / D6（目前沒用到）</td></tr>
+</table>
+</div>
+
+<h2>五、下一步</h2>
+<div class="card">
+<ol>
+  <li><b>杜邦線直接接驅動板（不經過 BMduino）</b>：ENA 接 5V、IN1 接 5V、IN2 接 GND，看馬達 A 會不會轉；馬達 B 用 ENB/IN3/IN4 照做。用來分出問題是在驅動板和馬達，還是在前面的線路。</li>
+  <li><b>目視和電表檢查</b>：PCA9685 CH1~CH4 → IN1~IN4 的杜邦線；74LS14 pin 11–12 的跳線；OUT1/OUT2 的螺絲端子有沒有鎖緊。</li>
+  <li><b>執行 <code>bmduino_pca_scan.ino</code></b>：確認通道對應；如果只是插錯通道，改程式設定就好。</li>
+  <li><b>把 <code>bmduino_motor.ino</code> 燒回去</b>，用 <code>motor_cmd.py</code> 測前輪（<code>--fwa 20</code>）和後輪。</li>
+  <li>馬達能正常轉之後：接上編碼器讀轉速，做 PID 定速控制。</li>
+</ol>
+</div>
+
+</main>
+</body>
+</html>

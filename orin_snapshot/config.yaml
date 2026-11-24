@@ -1,0 +1,184 @@
+# 循跡主程式的所有可調參數。標「要量」的請量實車後填入。
+
+camera:
+  device: 0               # /dev/video0
+  width: 640
+  height: 480
+  fps: 30
+  # 啟動時用 v4l2-ctl 設定（先 `v4l2-ctl -d /dev/video0 --list-ctrls` 看實際名稱），留空就不設
+  v4l2_ctrls:
+    white_balance_automatic: 1
+    auto_exposure: 1
+    focus_automatic_continuous: 0
+    brightness: 0
+    contrast: 1
+    saturation: 64
+    hue: 0
+    gamma: 215
+    power_line_frequency: 1
+    sharpness: 2
+    backlight_compensation: 0
+    exposure_time_absolute: 166
+    focus_absolute: 0
+
+geometry:                 # 鏡頭與車子的幾何，用來把畫面換成公尺
+  cam_height: 0.15        # 要量：鏡頭鏡片離地高度 m
+  hfov: 70.0              # 鏡頭水平視角（度），查規格或量
+  cam_to_rear_axle: 0.12  # 要量：鏡頭在後輪軸前方多少 m（在後輪軸後方就填負值）
+  wheelbase: 0.28         # 要量：前後輪軸距 L（m）
+  track_width: 0.16       # 要量：兩後輪中心距 W（m），差速用
+  lane_width: 0.54        # 要量：兩條白線中心距（m）；只看到一條線時用來推中線
+  car_width: 0.30
+ 
+vision:
+  baseline: ../baseline.json   # lane_view_check.py --save-baseline 產生；提供地平線位置
+  roi_top: 0.32           # null = 用基準檔的設定
+  roi_bottom: 0.77        # 畫面下緣拍到車身時調小，例如 0.85
+  thresh: 0               # 0 = Otsu 自動門檻
+  min_thresh: 60
+  smooth: 0.5             # 中線擬合係數的平滑（0 = 不平滑，越大越穩但越慢）
+  # 以下與 lane_view_check.py 相同，通常不用改
+  curve_px: 2.5
+  slope_deg: 3.0
+  min_span: 0.3
+  cutoff_w: 0.2
+  nwin: 14
+  margin: 18
+  minpix: 6
+
+control:
+  lookahead: 0.45         # Pure Pursuit 前視距離 Ld（m），從約 1.5 倍車長開始試；太小會搖、太大會切內線
+  lookahead_per_speed: 0.0  # Ld 隨速度增加：Ld = lookahead + 這個值 × 速度%/100
+  fwa_limit: 44           # 前輪轉角上限（度）；韌體行程約 -35 ~ +33 度
+  fwa_trim: 0             # 前輪置中修正（度）
+  v_max: 40               # 最高速度 %（先低速）54
+  v_min: 24               # 最低速度 %（低於這個馬達可能不轉）
+  k_curv: 0.25            # 彎越急越慢：v = v_max × (1 - k_curv × |曲率 1/m|)
+  uphill_boost: 8         # 前方上坡時加多少 %
+  downhill_factor: 0.6    # 前方下坡 / 坡頂時速度乘上這個值
+  slope_memory: 3.0       # 坡頂 / 坡底判斷的時間窗（s），見 controller.py
+  accel_per_s: 60         # 每秒最多加速多少 %（避免暴衝）
+  differential: true     # 後輪差速；只有一顆馬達出力時先關掉
+  diff_gain: 0.8
+  diff_from: 25
+  speed_profile:
+    enable: true
+    v_straight: 55
+    v_curve: 36  #進下坡撞擊左側 -2
+    fwa_low: 8
+    fwa_high: 24
+    attack_s: 0.1
+    release_s: 0.6
+    down_v: 30
+    down_s: 14
+    down_ld: 0.15
+    straight_ld: 0.12
+    yaw_damp: 0.3        # 直線上陀螺儀阻尼：車頭每 °/s 轉速，前輪反向修幾度（0 = 關，需要 IMU）
+  stall:
+    quick_fwa: 36
+    quick_m: 1.6
+    quick_boost: 15
+    total_max: 50
+    early_fwa: 40
+    early_m: 4.0
+    ramp_pitch: 9         # IMU 俯仰角超過幾度、車子一變慢就加速（不用等前輪打大），0 = 不用
+    enable: true
+    boost_per_s: 40
+    boost_max: 45
+    release: 1.4
+    release_s: 1.0
+    drop_per_s: 15
+    floor_ratio: 0.7
+    floor_s: 3.0
+    hold_s: 0.3
+  hilltop:
+    rearm_s: 20.0
+    ramp_v: 58            # 坡上（俯仰角 > arm_pitch）的速度 %，0 = 照 v_min / v_max
+    arm_pitch: 9          # IMU 俯仰角（上坡正）超過幾度才進爬坡模式，0 = 不看。平地最多 +5.8°、上坡 +13.5° 以上
+    enable: true
+    arm_boost: 10
+    time_s: 7.0
+    v_max: 50
+    fast_motion: 4.0
+    v_min: 50
+    start_ignore_s: 3.0
+    junction:
+      enable: true
+      detect_fwa: -99
+      detect_s: 0.1
+      window_s: 3.0
+      free_s: 4.5
+      ramp_fwa: 18
+      ramp_k: 0.3
+      ramp_xr: 500
+      ramp_px: 0.25
+      ramp_guard: 30
+      post_fwa: 12
+      post_s: 6.0
+      post_lmax: 4
+      force_s: 9.8
+      top_pitch: 9        # 有 IMU 時從坡頂（俯仰角掉到一半以下）開始算路口時間，0 = 用加速退掉的時間
+      top_free_s: 1.5     # 坡頂後幾秒開始找虛線（坡頂後最早 2.4 s 看到虛線）
+      top_force_s: 5.0    # 坡頂後幾秒還沒看到虛線就直接左轉
+      dash_near: 320
+      dash_wait: 0.6
+      turn_fwa: -40
+      turn_s: 0.95
+      turn_yaw: 66
+      turn_max_s: 2.0
+      hold_yaw: 96
+      hold_left: 6
+      dash_y: -0.20       # 直走時虛線保持在車子右邊幾 m（負 = 右），0 = 不看虛線
+      dash_k: 35          # 虛線每差 1 m，車頭目標多偏幾度
+      dash_yaw_max: 12    # 車頭目標最多多偏幾度
+      hold_d: 0.15        # 直走、對準時車頭轉速阻尼（每 °/s 前輪反向修幾度），防止轉過頭
+      dash_left: 12       # 看虛線修正時往左最多打幾度
+      straight_s: 3.0
+      bend_fwa: 36
+      bend_yaw: 30
+      bend_from: 5.0
+      bend_to: 6.8
+      bend_to: 6.8
+      align: true
+      down_yaw: 70        # 已經下坡後的車頭目標（下坡略往右偏），只往右修
+      down_fwa: 8         # 下坡上往右最多修幾度
+      align_yaw: 80       # 對準下坡的車頭角（有 IMU 時用陀螺儀）：成功的 184744 下坡時 80°，69–73° 從右側掉下去
+      speed: 35
+  corner:
+    enable: false
+    out_offset: 0.10
+    trigger: 0.30
+    wheelbase: 1.26
+  k_i: 60
+  i_leak_s: 3.0
+  i_max: 15
+  inner_bias:
+    enable: true
+    k: 0.10
+    inner_max: 0.06
+    attack_s: 0.3
+    release_s: 3.0
+
+imu:                      # GY-521（MPU-6050），見 imu.py；Orin 第 27/28 腳 = /dev/i2c-1
+  enable: true
+  bus: 1
+  addr: 0x68
+  forward: "+x"          # IMU 哪一軸朝車頭（車頭抬起時這軸的加速度變大）
+
+safety:
+  lost_timeout: 0.3       # 找不到線超過幾秒就停車
+  down_lost_s: 1.0
+  lost_speed_factor: 0.5  # 找不到線期間速度乘上這個值，維持最後轉角
+  sta_timeout: 0.5        # 超過幾秒沒收到 STA 就停車
+  idle_steer: true        # 待命時前輪也跟著辨識結果轉（架高測試用），速度維持 0
+
+link:
+  port: /dev/ttyTHS1
+  baud: 115200
+  hz: 20
+
+debug:
+  stream: true            # 瀏覽器看除錯畫面 http://<orin-ip>:8080，比賽時關掉
+  port: 8080
+  stream_hz: 10
+  log_dir: ../logs        # 每次執行寫一個 CSV
